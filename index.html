@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wess</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">Wess / Phase 1</p>
+        <p class="subhead">
+          Local two-player chess with legal move enforcement, castling, en passant,
+          promotion, checkmate, stalemate, repetition draws, and FEN export.
+        </p>
+      </header>
+
+      <main class="layout">
+        <section class="board-panel">
+          <div class="panel-header">
+            <div class="status-stack">
+              <p class="panel-label">Current Game</p>
+              <h2 id="status-text">White to move.</h2>
+              <div class="status-meta">
+                <span class="status-chip">Turn <strong id="turn-badge">White</strong></span>
+                <span class="status-chip">Check <strong id="check-badge">No</strong></span>
+                <span class="status-chip">Ply <strong id="move-counter">0</strong></span>
+                <span class="status-chip">View <strong id="orientation-badge">White</strong></span>
+              </div>
+            </div>
+            <div class="control-row">
+              <button id="flip-button" class="secondary-button" type="button">Flip Board</button>
+              <button id="reset-button" class="primary-button" type="button">New Game</button>
+            </div>
+          </div>
+
+          <div class="board-wrap">
+            <div id="board" class="board" aria-label="Chess board"></div>
+          </div>
+        </section>
+
+        <aside class="side-panel">
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <p class="panel-label">Position</p>
+                <h2>Current FEN</h2>
+              </div>
+              <button id="copy-fen-button" class="secondary-button" type="button">Copy</button>
+            </div>
+            <code id="fen-text" class="fen-block"></code>
+          </section>
+
+          <section class="card history-card">
+            <p class="panel-label">Notation</p>
+            <h2>Move List</h2>
+            <div id="history-list" class="history-list" aria-live="polite"></div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <dialog id="promotion-dialog" class="promotion-dialog">
+      <div class="dialog-body">
+        <p class="panel-label">Promotion</p>
+        <h2 id="promotion-title">Choose a piece</h2>
+        <div id="promotion-options" class="promotion-options"></div>
+        <button id="promotion-cancel" class="secondary-button wide-button" type="button">Cancel</button>
+      </div>
+    </dialog>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
