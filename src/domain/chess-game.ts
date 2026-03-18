@@ -1,55 +1,141 @@
-const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
-const BACK_RANK = ["r", "n", "b", "q", "k", "b", "n", "r"];
-const PROMOTION_PIECES = new Set(["q", "r", "b", "n"]);
+export type PieceColor = "w" | "b";
+export type PieceType = "p" | "n" | "b" | "r" | "q" | "k";
+export type CastleSide = "k" | "q";
 
-function createPiece(type, color) {
+export interface Piece {
+  type: PieceType;
+  color: PieceColor;
+}
+
+export type Board = (Piece | null)[][];
+
+export interface CastlingRights {
+  k: boolean;
+  q: boolean;
+}
+
+export interface Castling {
+  w: CastlingRights;
+  b: CastlingRights;
+}
+
+export interface EnPassant {
+  row: number;
+  col: number;
+  pawnRow: number;
+  pawnCol: number;
+  color: PieceColor;
+}
+
+export interface GameResult {
+  over: boolean;
+  winner: PieceColor | null;
+  reason: string | null;
+}
+
+export interface Move {
+  from: string;
+  to: string;
+  fromRow: number;
+  fromCol: number;
+  toRow: number;
+  toCol: number;
+  piece: PieceType;
+  color: PieceColor;
+  capture: boolean;
+  capturedPiece: PieceType | null;
+  promotionRequired?: boolean;
+  promotion?: string;
+  isDoublePawnPush?: boolean;
+  isEnPassant?: boolean;
+  capturedRow?: number;
+  capturedCol?: number;
+  isCastling?: boolean;
+  castleSide?: CastleSide;
+  notation?: string;
+  ply?: number;
+  fen?: string;
+}
+
+export interface GameState {
+  board: Board;
+  turn: PieceColor;
+  castling: Castling;
+  enPassant: EnPassant | null;
+  halfmoveClock: number;
+  fullmoveNumber: number;
+  moveHistory: Move[];
+  positionCounts: Map<string, number>;
+  check: boolean;
+  legalMoves: Move[];
+  result: GameResult;
+}
+
+export interface PublicSnapshot {
+  board: Board;
+  turn: PieceColor;
+  castling: Castling;
+  enPassant: EnPassant | null;
+  halfmoveClock: number;
+  fullmoveNumber: number;
+  moveHistory: Move[];
+  check: boolean;
+  result: GameResult;
+  fen: string;
+}
+
+const FILES: string[] = ["a", "b", "c", "d", "e", "f", "g", "h"];
+const BACK_RANK: PieceType[] = ["r", "n", "b", "q", "k", "b", "n", "r"];
+const PROMOTION_PIECES = new Set<string>(["q", "r", "b", "n"]);
+
+function createPiece(type: PieceType, color: PieceColor): Piece {
   return { type, color };
 }
 
-function clonePiece(piece) {
+function clonePiece(piece: Piece | null): Piece | null {
   return piece ? { ...piece } : null;
 }
 
-function cloneBoard(board) {
+function cloneBoard(board: Board): Board {
   return board.map((row) => row.map((piece) => clonePiece(piece)));
 }
 
-function cloneCastling(castling) {
+function cloneCastling(castling: Castling): Castling {
   return {
     w: { ...castling.w },
     b: { ...castling.b },
   };
 }
 
-function cloneMove(move) {
+function cloneMove(move: Move): Move {
   return { ...move };
 }
 
-function cloneEnPassant(enPassant) {
+function cloneEnPassant(enPassant: EnPassant | null): EnPassant | null {
   return enPassant ? { ...enPassant } : null;
 }
 
-function oppositeColor(color) {
+function oppositeColor(color: PieceColor): PieceColor {
   return color === "w" ? "b" : "w";
 }
 
-function pawnDirection(color) {
+function pawnDirection(color: PieceColor): number {
   return color === "w" ? -1 : 1;
 }
 
-function homeRank(color) {
+function homeRank(color: PieceColor): number {
   return color === "w" ? 7 : 0;
 }
 
-function isInBounds(row, col) {
+function isInBounds(row: number, col: number): boolean {
   return row >= 0 && row < 8 && col >= 0 && col < 8;
 }
 
-function coordsToSquare(row, col) {
+export function coordsToSquare(row: number, col: number): string {
   return `${FILES[col]}${8 - row}`;
 }
 
-function squareToCoords(square) {
+export function squareToCoords(square: string): { row: number; col: number } | null {
   if (typeof square !== "string" || !/^[a-h][1-8]$/i.test(square)) {
     return null;
   }
@@ -62,11 +148,11 @@ function squareToCoords(square) {
   };
 }
 
-function pieceLetter(type) {
+function pieceLetter(type: PieceType): string {
   return type === "p" ? "" : type.toUpperCase();
 }
 
-function pieceToFenChar(piece) {
+function pieceToFenChar(piece: Piece | null): string {
   if (!piece) {
     return "";
   }
@@ -74,17 +160,17 @@ function pieceToFenChar(piece) {
   return piece.color === "w" ? piece.type.toUpperCase() : piece.type;
 }
 
-function fenCharToPiece(char) {
-  const color = char === char.toUpperCase() ? "w" : "b";
-  return createPiece(char.toLowerCase(), color);
+function fenCharToPiece(char: string): Piece {
+  const color: PieceColor = char === char.toUpperCase() ? "w" : "b";
+  return createPiece(char.toLowerCase() as PieceType, color);
 }
 
-function normalizePromotionChoice(choice) {
+function normalizePromotionChoice(choice: string | undefined): PieceType {
   const normalized = String(choice ?? "q").toLowerCase();
-  return PROMOTION_PIECES.has(normalized) ? normalized : "q";
+  return PROMOTION_PIECES.has(normalized) ? normalized as PieceType : "q";
 }
 
-function buildInitialBoard() {
+function buildInitialBoard(): Board {
   const board = Array.from({ length: 8 }, () => Array(8).fill(null));
 
   for (let col = 0; col < 8; col += 1) {
@@ -97,7 +183,7 @@ function buildInitialBoard() {
   return board;
 }
 
-function boardToPlacement(board) {
+function boardToPlacement(board: Board): string {
   return board
     .map((row) => {
       let emptyCount = 0;
@@ -126,7 +212,7 @@ function boardToPlacement(board) {
     .join("/");
 }
 
-function castlingToString(castling) {
+function castlingToString(castling: Castling): string {
   let text = "";
 
   if (castling.w.k) {
@@ -145,11 +231,11 @@ function castlingToString(castling) {
   return text || "-";
 }
 
-function buildEnPassantSquare(state) {
+function buildEnPassantSquare(state: GameState): string {
   return state.enPassant ? coordsToSquare(state.enPassant.row, state.enPassant.col) : "-";
 }
 
-function buildRepetitionEnPassantSquare(state) {
+function buildRepetitionEnPassantSquare(state: GameState): string {
   if (!state.enPassant) {
     return "-";
   }
@@ -171,7 +257,7 @@ function buildRepetitionEnPassantSquare(state) {
   return "-";
 }
 
-function positionKey(state) {
+function positionKey(state: GameState): string {
   return [
     boardToPlacement(state.board),
     state.turn,
@@ -180,7 +266,7 @@ function positionKey(state) {
   ].join(" ");
 }
 
-function fullFen(state) {
+function fullFen(state: GameState): string {
   return [
     boardToPlacement(state.board),
     state.turn,
@@ -191,7 +277,7 @@ function fullFen(state) {
   ].join(" ");
 }
 
-function makeEmptyState() {
+function makeEmptyState(): GameState {
   return {
     board: Array.from({ length: 8 }, () => Array(8).fill(null)),
     turn: "w",
@@ -214,7 +300,7 @@ function makeEmptyState() {
   };
 }
 
-function createInitialState() {
+function createInitialState(): GameState {
   const state = makeEmptyState();
   state.board = buildInitialBoard();
   state.castling = {
@@ -226,13 +312,20 @@ function createInitialState() {
   return state;
 }
 
-function parseFen(fen) {
+function parseFen(fen: string): GameState {
   const fields = String(fen).trim().split(/\s+/);
   if (fields.length < 4) {
     throw new Error("Invalid FEN: expected at least 4 fields.");
   }
 
-  const [placement, activeColor, castlingField, enPassantField, halfmoveField = "0", fullmoveField = "1"] = fields;
+  const [
+    placement,
+    activeColor,
+    castlingField,
+    enPassantField,
+    halfmoveField = "0",
+    fullmoveField = "1",
+  ] = fields;
   const rows = placement.split("/");
   if (rows.length !== 8) {
     throw new Error("Invalid FEN: expected 8 ranks.");
@@ -266,10 +359,20 @@ function parseFen(fen) {
     }
   });
 
+  const kings = { w: 0, b: 0 };
+  for (const row of state.board) {
+    for (const piece of row) {
+      if (piece?.type === "k") kings[piece.color] += 1;
+    }
+  }
+  if (kings.w !== 1 || kings.b !== 1) {
+    throw new Error("Invalid FEN: each side must have exactly one king.");
+  }
+
   if (activeColor !== "w" && activeColor !== "b") {
     throw new Error("Invalid FEN: active color must be 'w' or 'b'.");
   }
-  state.turn = activeColor;
+  state.turn = activeColor as PieceColor;
 
   state.castling = {
     w: {
@@ -306,7 +409,7 @@ function parseFen(fen) {
   return state;
 }
 
-function cloneState(state) {
+function cloneState(state: GameState): GameState {
   return {
     board: cloneBoard(state.board),
     turn: state.turn,
@@ -322,7 +425,16 @@ function cloneState(state) {
   };
 }
 
-function cloneStateForSimulation(state) {
+interface SimulationState {
+  board: Board;
+  turn: PieceColor;
+  castling: Castling;
+  enPassant: EnPassant | null;
+  halfmoveClock: number;
+  fullmoveNumber: number;
+}
+
+function cloneStateForSimulation(state: GameState): SimulationState {
   return {
     board: cloneBoard(state.board),
     turn: state.turn,
@@ -333,7 +445,7 @@ function cloneStateForSimulation(state) {
   };
 }
 
-function publicSnapshot(state) {
+function publicSnapshot(state: GameState): PublicSnapshot {
   return {
     board: cloneBoard(state.board),
     turn: state.turn,
@@ -348,7 +460,7 @@ function publicSnapshot(state) {
   };
 }
 
-function findKing(state, color) {
+function findKing(state: GameState | SimulationState, color: PieceColor): { row: number; col: number } | null {
   for (let row = 0; row < 8; row += 1) {
     for (let col = 0; col < 8; col += 1) {
       const piece = state.board[row][col];
@@ -361,7 +473,7 @@ function findKing(state, color) {
   return null;
 }
 
-function isSquareAttacked(state, targetRow, targetCol, attackerColor) {
+function isSquareAttacked(state: GameState | SimulationState, targetRow: number, targetCol: number, attackerColor: PieceColor): boolean {
   for (let row = 0; row < 8; row += 1) {
     for (let col = 0; col < 8; col += 1) {
       const piece = state.board[row][col];
@@ -454,7 +566,7 @@ function isSquareAttacked(state, targetRow, targetCol, attackerColor) {
   return false;
 }
 
-function isKingInCheck(state, color) {
+function isKingInCheck(state: GameState | SimulationState, color: PieceColor): boolean {
   const king = findKing(state, color);
   if (!king) {
     return false;
@@ -463,10 +575,10 @@ function isKingInCheck(state, color) {
   return isSquareAttacked(state, king.row, king.col, oppositeColor(color));
 }
 
-function createMove(state, row, col, toRow, toCol, extra = {}) {
-  const movingPiece = state.board[row][col];
+function createMove(state: GameState, row: number, col: number, toRow: number, toCol: number, extra: Partial<Move> = {}): Move {
+  const movingPiece = state.board[row][col]!;
   const capturedPiece = extra.isEnPassant
-    ? state.board[extra.capturedRow][extra.capturedCol]
+    ? state.board[extra.capturedRow!][extra.capturedCol!]
     : state.board[toRow][toCol];
 
   return {
@@ -484,7 +596,7 @@ function createMove(state, row, col, toRow, toCol, extra = {}) {
   };
 }
 
-function generatePseudoMovesForPiece(state, row, col) {
+function generatePseudoMovesForPiece(state: GameState, row: number, col: number): Move[] {
   const piece = state.board[row][col];
   if (!piece) {
     return [];
@@ -701,16 +813,16 @@ function generatePseudoMovesForPiece(state, row, col) {
   return moves;
 }
 
-function applyMoveToState(state, move) {
-  const piece = state.board[move.fromRow][move.fromCol];
+function applyMoveToState(state: GameState | SimulationState, move: Move): void {
+  const piece = state.board[move.fromRow][move.fromCol]!;
   const targetPiece = move.isEnPassant
-    ? state.board[move.capturedRow][move.capturedCol]
+    ? state.board[move.capturedRow!][move.capturedCol!]
     : state.board[move.toRow][move.toCol];
 
   state.board[move.fromRow][move.fromCol] = null;
 
   if (move.isEnPassant) {
-    state.board[move.capturedRow][move.capturedCol] = null;
+    state.board[move.capturedRow!][move.capturedCol!] = null;
   }
 
   if (move.isCastling) {
@@ -725,7 +837,7 @@ function applyMoveToState(state, move) {
     }
   }
 
-  const promotionType = move.promotionRequired || move.promotion
+  const promotionType = move.promotionRequired
     ? normalizePromotionChoice(move.promotion)
     : piece.type;
 
@@ -783,13 +895,13 @@ function applyMoveToState(state, move) {
   state.turn = oppositeColor(piece.color);
 }
 
-function moveLeavesKingInCheck(state, move) {
+function moveLeavesKingInCheck(state: GameState, move: Move): boolean {
   const simulated = cloneStateForSimulation(state);
   applyMoveToState(simulated, move);
   return isKingInCheck(simulated, move.color);
 }
 
-function generateLegalMovesForSquare(state, row, col, color = state.turn) {
+function generateLegalMovesForSquare(state: GameState, row: number, col: number, color: PieceColor = state.turn): Move[] {
   const piece = state.board[row][col];
   if (!piece || piece.color !== color) {
     return [];
@@ -799,7 +911,7 @@ function generateLegalMovesForSquare(state, row, col, color = state.turn) {
   return pseudoMoves.filter((move) => !moveLeavesKingInCheck(state, move));
 }
 
-function generateAllLegalMoves(state, color = state.turn) {
+function generateAllLegalMoves(state: GameState, color: PieceColor = state.turn): Move[] {
   const moves = [];
 
   for (let row = 0; row < 8; row += 1) {
@@ -811,11 +923,11 @@ function generateAllLegalMoves(state, color = state.turn) {
   return moves;
 }
 
-function squareColor(row, col) {
+function squareColor(row: number, col: number): string {
   return (row + col) % 2 === 0 ? "light" : "dark";
 }
 
-function isInsufficientMaterial(state) {
+function isInsufficientMaterial(state: GameState): boolean {
   const pieces = [];
 
   for (let row = 0; row < 8; row += 1) {
@@ -844,17 +956,6 @@ function isInsufficientMaterial(state) {
     return true;
   }
 
-  if (
-    pieces.length === 2 &&
-    pieces.every((piece) => piece.type === "n")
-  ) {
-    const whiteKnights = pieces.filter((piece) => piece.color === "w").length;
-    const blackKnights = pieces.filter((piece) => piece.color === "b").length;
-    if (whiteKnights === 2 || blackKnights === 2) {
-      return true;
-    }
-  }
-
   if (pieces.every((piece) => piece.type === "b")) {
     return new Set(pieces.map((piece) => piece.squareColor)).size === 1;
   }
@@ -862,11 +963,11 @@ function isInsufficientMaterial(state) {
   return false;
 }
 
-function evaluateState(state) {
+function evaluateState(state: GameState): void {
   state.check = isKingInCheck(state, state.turn);
   state.legalMoves = generateAllLegalMoves(state, state.turn);
 
-  let result = {
+  let result: GameResult = {
     over: false,
     winner: null,
     reason: null,
@@ -907,47 +1008,76 @@ function evaluateState(state) {
   state.result = result;
 }
 
-function formatMove(previousState, move, currentState) {
-  if (move.isCastling) {
-    return `${move.castleSide === "k" ? "O-O" : "O-O-O"}${currentState.result.reason === "checkmate" ? "#" : currentState.check ? "+" : ""}`;
-  }
-
-  const captureToken = move.capture ? "x" : "-";
-  const promotionToken = move.promotion ? `=${move.promotion.toUpperCase()}` : "";
-  const enPassantToken = move.isEnPassant ? " e.p." : "";
+function formatMove(previousState: GameState, move: Move, currentState: GameState): string {
   const suffix = currentState.result.reason === "checkmate"
     ? "#"
     : currentState.check
       ? "+"
       : "";
 
-  return `${pieceLetter(move.piece)}${move.from}${captureToken}${move.to}${promotionToken}${enPassantToken}${suffix}`;
+  if (move.isCastling) {
+    return `${move.castleSide === "k" ? "O-O" : "O-O-O"}${suffix}`;
+  }
+
+  const captureToken = move.capture ? "x" : "";
+  const promotionToken = move.promotion ? `=${move.promotion.toUpperCase()}` : "";
+  const destination = move.to;
+
+  if (move.piece === "p") {
+    const pawnPrefix = move.capture ? `${move.from[0]}${captureToken}` : "";
+    return `${pawnPrefix}${destination}${promotionToken}${suffix}`;
+  }
+
+  const competingMoves = generateAllLegalMoves(previousState, move.color).filter((candidate) => (
+    candidate.from !== move.from
+    && candidate.to === move.to
+    && candidate.piece === move.piece
+  ));
+
+  let disambiguation = "";
+
+  if (competingMoves.length > 0) {
+    const sameFile = competingMoves.some((candidate) => candidate.from[0] === move.from[0]);
+    const sameRank = competingMoves.some((candidate) => candidate.from[1] === move.from[1]);
+
+    if (!sameFile) {
+      disambiguation = move.from[0];
+    } else if (!sameRank) {
+      disambiguation = move.from[1];
+    } else {
+      disambiguation = move.from;
+    }
+  }
+
+  return `${pieceLetter(move.piece)}${disambiguation}${captureToken}${destination}${promotionToken}${suffix}`;
 }
 
 export class ChessGame {
-  constructor(fen = null) {
+  state: GameState;
+
+  constructor(fen: string | null = null) {
     this.state = fen ? parseFen(fen) : createInitialState();
   }
 
-  reset() {
+  reset(): PublicSnapshot {
     this.state = createInitialState();
     return this.snapshot();
   }
 
-  loadFen(fen) {
+  loadFen(fen: string): PublicSnapshot {
     this.state = parseFen(fen);
     return this.snapshot();
   }
 
-  toFen() {
+  toFen(): string {
     return fullFen(this.state);
   }
 
-  snapshot() {
+  snapshot(): PublicSnapshot {
     return publicSnapshot(this.state);
   }
 
-  getPiece(square) {
+  getPiece(square: string): Piece | null {
     const coords = squareToCoords(square);
     if (!coords) {
       return null;
@@ -956,7 +1086,7 @@ export class ChessGame {
     return clonePiece(this.state.board[coords.row][coords.col]);
   }
 
-  getLegalMoves(square) {
+  getLegalMoves(square: string): Move[] {
     if (this.state.result.over) {
       return [];
     }
@@ -966,10 +1096,11 @@ export class ChessGame {
       return [];
     }
 
-    return generateLegalMovesForSquare(this.state, coords.row, coords.col).map((move) => cloneMove(move));
+    return generateLegalMovesForSquare(this.state, coords.row, coords.col, this.state.turn)
+      .map((move) => cloneMove(move));
   }
 
-  getAllLegalMoves(color = this.state.turn) {
+  getAllLegalMoves(color: PieceColor = this.state.turn): Move[] {
     if (this.state.result.over && color === this.state.turn) {
       return [];
     }
@@ -977,7 +1108,7 @@ export class ChessGame {
     return generateAllLegalMoves(this.state, color).map((move) => cloneMove(move));
   }
 
-  makeMove(from, to, promotion = "q") {
+  makeMove(from: string, to: string, promotion: string = "q"): Move | null {
     if (this.state.result.over) {
       return null;
     }
