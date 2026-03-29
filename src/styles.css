@@ -600,6 +600,80 @@ input[type="range"] {
 }
 
 /* Variant links */
+/* Game history */
+.game-history-section {
+  margin-top: 4px;
+}
+
+.game-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.history-entry:hover {
+  background: var(--bg-raised);
+}
+
+.history-entry-result {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 32px;
+  text-align: center;
+  padding: 2px 5px;
+  border-radius: var(--radius-xs);
+}
+.history-entry-result.win { color: var(--green); background: var(--green-dim); }
+.history-entry-result.loss { color: var(--red); background: var(--red-dim); }
+.history-entry-result.draw { color: var(--text-muted); background: var(--bg-raised); }
+
+.history-entry-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-entry-players {
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-entry-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.playground-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-options {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-btn {
+  flex: 1;
+}
+
 .playground-btn {
   width: 100%;
   padding: 11px;
@@ -1038,18 +1112,22 @@ input[type="range"] {
 /* Mobile: single column */
 @media (max-width: 720px) {
   :root {
-    --page-px: 16px;
+    --page-px: 12px;
     --header-h: 48px;
   }
 
-  .site-nav {
-    display: none;
+  .site-nav .nav-link {
+    padding: 6px 8px;
+    font-size: 12.5px;
+    min-width: auto;
   }
+
+  .nav-icon { display: none; }
 
   .lobby-page {
     grid-template-columns: 1fr;
-    gap: 20px;
-    padding-top: 20px;
+    gap: 16px;
+    padding-top: 16px;
   }
 
   .lobby-play {
@@ -1060,7 +1138,62 @@ input[type="range"] {
   }
 
   .board-placeholder {
-    max-width: 400px;
+    max-width: 100%;
+  }
+
+  .time-controls-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tc-card {
+    padding: 14px 8px 12px;
+    min-height: 44px;
+  }
+
+  .playground-btn,
+  .create-game-btn {
+    min-height: 44px;
+  }
+
+  .nameplate-text {
+    font-size: 9px;
+    padding: 2px 8px;
+  }
+
+  .game-layout {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .game-info-panel {
+    position: static;
+  }
+
+  .game-info-inner {
+    max-height: none;
+    padding: 10px;
+  }
+
+  .game-controls-bar {
+    flex-wrap: wrap;
+  }
+
+  .game-ctrl-btn {
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .game-moves-panel {
+    max-height: 160px;
+  }
+
+  .promotion-button {
+    padding: 14px 8px;
+  }
+
+  .promotion-piece {
+    width: 56px;
+    height: 56px;
   }
 
   .footer-inner {
@@ -1943,6 +2076,10 @@ input[type="range"] {
   border-radius: 999px;
   border: 3.5px solid rgba(42, 31, 24, 0.34);
   background: transparent;
+}
+
+.square.premove {
+  box-shadow: inset 0 0 0 3px rgba(90, 157, 196, 0.6), inset 0 0 12px rgba(90, 157, 196, 0.1);
 }
 
 .square.drop-hover {

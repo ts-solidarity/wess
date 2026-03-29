@@ -192,168 +192,169 @@ export function createAudioController({
     oscillator.stop(stopTime);
   }
 
+  // --- Wood-tap style sounds: warm, soft, quick ---
+
   function playMoveCue(color: PieceColor, delayMs: number = 0, options: MoveCueOptions = {}): void {
-    const base = color === "w" ? 430 : 320;
+    const base = color === "w" ? 280 : 220;
     const pitch = options.pitchScale ?? 1;
     const gainScale = options.gainScale ?? 1;
 
+    // Soft thud
     playSynthSweep({
       delayMs,
-      durationMs: 92,
-      attackMs: 5,
-      releaseMs: 86,
+      durationMs: 60,
+      attackMs: 3,
+      releaseMs: 55,
       fromFrequency: base * pitch,
-      toFrequency: base * 1.42 * pitch,
-      gain: 0.016 * gainScale,
-      type: "triangle",
-      filterFrequency: 1800,
+      toFrequency: base * 0.7 * pitch,
+      gain: 0.013 * gainScale,
+      type: "sine",
+      filterFrequency: 900,
     });
 
+    // Subtle resonance
     playSynthSweep({
-      delayMs: delayMs + 8,
-      durationMs: 118,
-      attackMs: 8,
-      releaseMs: 106,
-      fromFrequency: (base * 0.64) * pitch,
-      toFrequency: (base * 0.9) * pitch,
-      gain: 0.007 * gainScale,
-      type: "sine",
-      filterFrequency: 920,
+      delayMs: delayMs + 5,
+      durationMs: 80,
+      attackMs: 4,
+      releaseMs: 72,
+      fromFrequency: (base * 1.5) * pitch,
+      toFrequency: (base * 1.2) * pitch,
+      gain: 0.005 * gainScale,
+      type: "triangle",
+      filterFrequency: 600,
     });
   }
 
   function playCaptureCue(color: PieceColor, delayMs: number = 0): void {
-    const base = color === "w" ? 260 : 210;
+    const base = color === "w" ? 200 : 170;
 
+    // Snap
     playSynthSweep({
       delayMs,
-      durationMs: 128,
-      attackMs: 4,
-      releaseMs: 118,
-      fromFrequency: base * 1.9,
-      toFrequency: base * 0.62,
-      gain: 0.024,
-      type: "sawtooth",
-      filterFrequency: 1500,
-      q: 1.2,
+      durationMs: 70,
+      attackMs: 2,
+      releaseMs: 64,
+      fromFrequency: base * 1.6,
+      toFrequency: base * 0.5,
+      gain: 0.018,
+      type: "triangle",
+      filterFrequency: 1100,
+      q: 0.8,
     });
 
+    // Low thump
     playSynthSweep({
-      delayMs: delayMs + 10,
-      durationMs: 76,
-      attackMs: 3,
-      releaseMs: 68,
-      fromFrequency: 980,
-      toFrequency: 240,
-      gain: 0.011,
-      type: "square",
-      filterFrequency: 2300,
-      q: 0.9,
+      delayMs: delayMs + 8,
+      durationMs: 50,
+      attackMs: 2,
+      releaseMs: 44,
+      fromFrequency: 160,
+      toFrequency: 80,
+      gain: 0.01,
+      type: "sine",
+      filterFrequency: 400,
     });
   }
 
   function playCastleCue(color: PieceColor, delayMs: number = 0): void {
-    playMoveCue(color, delayMs, { gainScale: 0.9 });
-    playMoveCue(color, delayMs + 78, {
-      gainScale: 0.72,
-      pitchScale: 1.14,
-    });
+    playMoveCue(color, delayMs, { gainScale: 0.85 });
+    playMoveCue(color, delayMs + 60, { gainScale: 0.65, pitchScale: 1.12 });
   }
 
   function playPromotionCue(color: PieceColor, delayMs: number = 0): void {
-    const base = color === "w" ? 300 : 230;
+    const base = color === "w" ? 220 : 180;
 
     playSynthSweep({
       delayMs,
-      durationMs: 220,
-      attackMs: 8,
-      releaseMs: 206,
+      durationMs: 160,
+      attackMs: 6,
+      releaseMs: 148,
       fromFrequency: base,
-      toFrequency: base * 2.85,
-      gain: 0.018,
-      type: "triangle",
-      filterFrequency: 2400,
+      toFrequency: base * 2.2,
+      gain: 0.012,
+      type: "sine",
+      filterFrequency: 1600,
     });
 
     playSynthSweep({
-      delayMs: delayMs + 34,
-      durationMs: 180,
-      attackMs: 6,
-      releaseMs: 170,
+      delayMs: delayMs + 20,
+      durationMs: 120,
+      attackMs: 5,
+      releaseMs: 110,
       fromFrequency: base * 1.5,
-      toFrequency: base * 3.3,
-      gain: 0.009,
-      type: "sine",
-      filterFrequency: 2800,
+      toFrequency: base * 2.8,
+      gain: 0.006,
+      type: "triangle",
+      filterFrequency: 2000,
     });
   }
 
   function playCheckCue(color: PieceColor, delayMs: number = 0): void {
-    const base = color === "w" ? 700 : 560;
+    const base = color === "w" ? 480 : 400;
 
     playSynthSweep({
       delayMs,
-      durationMs: 84,
-      attackMs: 4,
-      releaseMs: 72,
+      durationMs: 60,
+      attackMs: 3,
+      releaseMs: 52,
       fromFrequency: base,
-      toFrequency: base * 0.92,
-      gain: 0.012,
-      type: "square",
-      filterFrequency: 2100,
+      toFrequency: base * 0.88,
+      gain: 0.01,
+      type: "triangle",
+      filterFrequency: 1200,
     });
 
     playSynthSweep({
-      delayMs: delayMs + 88,
-      durationMs: 90,
-      attackMs: 4,
-      releaseMs: 82,
-      fromFrequency: base * 0.92,
-      toFrequency: base * 0.84,
-      gain: 0.011,
-      type: "square",
-      filterFrequency: 1900,
+      delayMs: delayMs + 70,
+      durationMs: 65,
+      attackMs: 3,
+      releaseMs: 58,
+      fromFrequency: base * 0.88,
+      toFrequency: base * 0.76,
+      gain: 0.009,
+      type: "triangle",
+      filterFrequency: 1000,
     });
   }
 
   function playMateCue(color: PieceColor, delayMs: number = 0): void {
-    const base = color === "w" ? 520 : 420;
+    const base = color === "w" ? 360 : 300;
 
     playSynthSweep({
       delayMs,
-      durationMs: 170,
-      attackMs: 6,
-      releaseMs: 160,
+      durationMs: 140,
+      attackMs: 5,
+      releaseMs: 130,
       fromFrequency: base,
-      toFrequency: base * 0.62,
-      gain: 0.018,
-      type: "sawtooth",
-      filterFrequency: 1300,
-      q: 1,
-    });
-
-    playSynthSweep({
-      delayMs: delayMs + 120,
-      durationMs: 180,
-      attackMs: 6,
-      releaseMs: 170,
-      fromFrequency: base * 0.76,
-      toFrequency: base * 0.48,
+      toFrequency: base * 0.6,
       gain: 0.014,
       type: "triangle",
-      filterFrequency: 1100,
+      filterFrequency: 900,
     });
 
     playSynthSweep({
-      delayMs: delayMs + 32,
-      durationMs: 260,
-      attackMs: 8,
-      releaseMs: 240,
-      fromFrequency: base * 0.42,
-      toFrequency: base * 0.24,
-      gain: 0.012,
+      delayMs: delayMs + 100,
+      durationMs: 150,
+      attackMs: 5,
+      releaseMs: 140,
+      fromFrequency: base * 0.7,
+      toFrequency: base * 0.42,
+      gain: 0.011,
       type: "sine",
       filterFrequency: 700,
+    });
+
+    playSynthSweep({
+      delayMs: delayMs + 24,
+      durationMs: 200,
+      attackMs: 6,
+      releaseMs: 188,
+      fromFrequency: base * 0.35,
+      toFrequency: base * 0.2,
+      gain: 0.008,
+      type: "sine",
+      filterFrequency: 400,
     });
   }
 

@@ -118,7 +118,20 @@
           </div>
         </div>
 
-        <button class="playground-btn" type="button">Playground</button>
+        <div class="playground-section">
+          <button class="playground-btn" type="button">Playground</button>
+          <div class="ai-options">
+            <span class="subsection-heading" style="margin-bottom: 0;">vs AI</span>
+            <button class="game-ctrl-btn small ai-btn" data-ai-depth="1" type="button">Easy</button>
+            <button class="game-ctrl-btn small ai-btn" data-ai-depth="2" type="button">Medium</button>
+            <button class="game-ctrl-btn small ai-btn" data-ai-depth="3" type="button">Hard</button>
+          </div>
+        </div>
+
+        <div class="game-history-section">
+          <h3 class="subsection-heading">Recent Games</h3>
+          <div id="game-history-list" class="game-history-list"></div>
+        </div>
       </section>
 
       <!-- Center Column: Board Placeholder + Create Game Panel -->

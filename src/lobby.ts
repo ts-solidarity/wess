@@ -4,6 +4,7 @@ import type { ThemeMode } from "./app/settings";
 import { SETTINGS_STORAGE_KEY, BOARD_SIZE_MIN, BOARD_SIZE_MAX, BOARD_SIZE_STEP } from "./app/constants";
 import { applyTheme } from "./main";
 import * as mp from "./app/multiplayer";
+import { getHistory } from "./domain/game-history";
 
 const NAME_STORAGE_KEY = "wess-player-name";
 
@@ -137,6 +138,14 @@ function initNavigation() {
     navigate("/play");
   });
 
+  // AI buttons → playground with AI
+  document.querySelectorAll<HTMLButtonElement>(".ai-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const depth = btn.dataset.aiDepth ?? "2";
+      navigate(`/play?ai=${depth}`);
+    });
+  });
+
   // Logo → home
   document.querySelector(".site-logo")?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -216,6 +225,41 @@ function initBoardSizeSlider() {
   });
 }
 
+function renderGameHistory() {
+  const list = document.getElementById("game-history-list");
+  if (!list) return;
+
+  const history = getHistory();
+  if (history.length === 0) {
+    list.innerHTML = '<div class="history-entry-meta" style="padding: 8px 0;">No games yet.</div>';
+    return;
+  }
+
+  list.innerHTML = history.slice(0, 10).map((g) => {
+    const resultClass = g.result === "1-0" ? "win" : g.result === "0-1" ? "loss" : "draw";
+    const ago = formatTimeAgo(g.date);
+    const moves = Math.ceil(g.moves / 2);
+    return `<div class="history-entry" data-pgn="${encodeURIComponent(g.pgn)}">
+      <span class="history-entry-result ${resultClass}">${g.result}</span>
+      <div class="history-entry-info">
+        <div class="history-entry-players">${g.white} vs ${g.black}</div>
+        <div class="history-entry-meta">${moves} moves &middot; ${g.reason} &middot; ${ago}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function formatTimeAgo(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 initPlaceholderGrid();
 initNameInput();
 initRangeInputs();
@@ -223,3 +267,4 @@ initColorPicker();
 initNavigation();
 initThemeToggle();
 initBoardSizeSlider();
+renderGameHistory();

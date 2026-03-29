@@ -114,6 +114,7 @@ interface BoardSceneConfig {
   hasClockExpired: () => boolean;
   isReplayActive: () => boolean;
   getFxProfile?: () => FxProfile;
+  getPremove?: () => { from: string; to: string } | null;
 }
 
 function createSquareElement(index: number): HTMLButtonElement {
@@ -156,6 +157,7 @@ export function createBoardScene({
   hasClockExpired,
   isReplayActive,
   getFxProfile,
+  getPremove,
 }: BoardSceneConfig) {
   const scene: Scene = {
     squareLayer: null,
@@ -591,6 +593,11 @@ export function createBoardScene({
 
       if (lastMove && (square === lastMove.from || square === lastMove.to)) {
         element.classList.add("last-move");
+      }
+
+      const premove = getPremove?.();
+      if (premove && (square === premove.from || square === premove.to)) {
+        element.classList.add("premove");
       }
 
       if (checkedKingSquare && square === checkedKingSquare) {

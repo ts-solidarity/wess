@@ -2,8 +2,11 @@ import { ChessGame } from "../domain/chess-game";
 import type { PieceColor, PieceType, Move, PublicSnapshot } from "../domain/chess-game";
 import { getPromotionTargets } from "../domain/piece-movement";
 import { showDraft, hideDraft, getCurrentPlacements } from "./draft-controller";
-import { draftsToFen } from "../domain/draft";
+import { draftsToFen, classicDraft } from "../domain/draft";
 import type { DraftPlacement } from "../domain/draft";
+import { saveGame, generateGameId } from "../domain/game-history";
+import { findBestMove } from "../domain/ai-engine";
+import type { AIConfig } from "../domain/ai-engine";
 import {
   PIECE_NAMES,
   SESSION_STORAGE_KEY,
@@ -62,6 +65,8 @@ let orientation: PieceColor = "w";
 let selectedSquare: string | null = null;
 let legalMoves: Move[] = [];
 let pendingPromotionMove: Move | null = null;
+let pendingPremove: { from: string; to: string } | null = null;
+let aiConfig: AIConfig | null = null;
 let resizeFrame: number | null = null;
 let layoutObserver: ResizeObserver | null = null;
 let currentState = game.snapshot();
@@ -142,6 +147,7 @@ const boardScene = createBoardScene({
   hasClockExpired,
   isReplayActive,
   getFxProfile,
+  getPremove: () => pendingPremove,
 });
 
 const { scene } = boardScene;
@@ -490,6 +496,33 @@ function showGameBanner(text: string, style: "info" | "result" | "warn" = "info"
   gameBanner.hidden = false;
 }
 
+let gameSaved = false;
+
+function saveCompletedGame(result: string, reason: string) {
+  if (gameSaved) return;
+  gameSaved = true;
+  try {
+    const pgn = buildPgnText();
+    const playerName = document.getElementById("player-name")?.textContent || "You";
+    const opponentName = document.getElementById("opponent-name")?.textContent || "Opponent";
+    const isWhite = orientation === "w";
+    saveGame({
+      id: generateGameId(),
+      date: Date.now(),
+      white: isWhite ? playerName : opponentName,
+      black: isWhite ? opponentName : playerName,
+      result,
+      reason,
+      moves: session.moves.length,
+      pgn,
+      clockInitialMs: session.clockInitialMs,
+      isMultiplayer: mp.isMultiplayer(),
+    });
+  } catch {
+    // ignore save errors
+  }
+}
+
 function hideGameBanner() {
   if (gameBanner) gameBanner.hidden = true;
 }
@@ -831,6 +864,8 @@ function renderStatus(state: PublicSnapshot) {
     }
     if (mpControlsElement) mpControlsElement.hidden = true;
     showRematchButton();
+    const resultStr = reason === "checkmate" ? (state.result.winner === "w" ? "1-0" : "0-1") : "1/2-1/2";
+    saveCompletedGame(resultStr, reason);
   } else if (!state.result.over && !session.timeoutWinner && mp.isMultiplayer()) {
     if (session.moves.length > 0 && firstMoveTimer) {
       stopFirstMoveCountdown();
@@ -916,7 +951,15 @@ async function commitMove(from: string, to: string, promotion?: string, options:
     return null;
   }
 
-  if (mp.isMultiplayer() && (mp.isSpectator() || !mp.isMyTurn(currentState.turn))) {
+  if (mp.isMultiplayer() && mp.isSpectator()) {
+    return null;
+  }
+
+  // Premove: if it's not your turn, queue the move instead of executing
+  if (mp.isMultiplayer() && !mp.isMyTurn(currentState.turn)) {
+    pendingPremove = { from, to };
+    clearSelection();
+    refreshBoardScene(currentState);
     return null;
   }
 
@@ -972,6 +1015,17 @@ async function commitMove(from: string, to: string, promotion?: string, options:
     mp.sendMove({ from, to, promotion: record.promotion }).catch(() => {
       setSessionNote("Move could not be sent to server.", "warn");
     });
+  }
+
+  // AI response in playground mode
+  if (aiConfig && !mp.isMultiplayer() && !afterState.result.over && afterState.turn === aiConfig.color) {
+    const delay = 300 + Math.random() * 500;
+    setTimeout(() => {
+      const aiMove = findBestMove(game, aiConfig!);
+      if (aiMove) {
+        void commitMove(aiMove.from, aiMove.to, aiMove.promotion);
+      }
+    }, delay);
   }
 
   return record;
@@ -1346,6 +1400,8 @@ function startGameFromFen(fen: string) {
   resetDragState();
   clearFxEffects();
   hideGameBanner();
+  gameSaved = false;
+  if (!aiConfig) aiConfig = null; // preserve AI config if set by openPlayground
   game.loadFen(fen);
   currentState = game.snapshot();
   session = createEmptySession(fen, session.clockInitialMs);
@@ -1357,19 +1413,37 @@ function startGameFromFen(fen: string) {
 }
 
 function openPlayground() {
+  // Check for AI mode from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const aiDepth = Number(urlParams.get("ai")) || 0;
+
   let whitePlacements: DraftPlacement[] = [];
 
   showDraft("w", () => {
     whitePlacements = getCurrentPlacements();
-    showDraft("b", () => {
-      const blackPlacements = getCurrentPlacements();
+
+    if (aiDepth > 0) {
+      // AI mode: skip black draft, AI gets classic army
+      const blackPlacements = classicDraft("b");
       const fen = draftsToFen(whitePlacements, blackPlacements);
-      // Timeless: set huge clock so it never expires, null activeColor so clocks don't tick
       session.clockInitialMs = 99999999;
+      aiConfig = { depth: aiDepth, color: "b" };
       startGameFromFen(fen);
       session.clockSnapshots[0] = { whiteMs: 99999999, blackMs: 99999999, activeColor: null };
-      setSessionNote("Playground — no clocks, control both sides.", "ready");
-    });
+      const level = aiDepth === 1 ? "Easy" : aiDepth === 2 ? "Medium" : "Hard";
+      showGameBanner(`Playing vs AI (${level})`, "info");
+    } else {
+      // Regular playground: draft both sides
+      showDraft("b", () => {
+        const blackPlacements = getCurrentPlacements();
+        const fen = draftsToFen(whitePlacements, blackPlacements);
+        session.clockInitialMs = 99999999;
+        aiConfig = null;
+        startGameFromFen(fen);
+        session.clockSnapshots[0] = { whiteMs: 99999999, blackMs: 99999999, activeColor: null };
+        setSessionNote("Playground — no clocks, control both sides.", "ready");
+      });
+    }
   });
 }
 
@@ -1526,6 +1600,18 @@ function handleRemoteMove(move: TimelineMove, clock: ClockSnapshot, firstMoveDea
 
   queueSceneAnimation(() => animateSceneMove(record, afterState, {}));
   applyMultiplayerUiState();
+
+  // Execute premove if queued and it's now our turn
+  if (pendingPremove && mp.isMyTurn(afterState.turn) && !afterState.result.over) {
+    const pm = pendingPremove;
+    pendingPremove = null;
+    // Validate the premove is still legal
+    const legalMoves = game.getAllLegalMoves();
+    const isLegal = legalMoves.some((m) => m.from === pm.from && m.to === pm.to);
+    if (isLegal) {
+      setTimeout(() => { void commitMove(pm.from, pm.to); }, 80);
+    }
+  }
 }
 
 const playerNameElement = document.getElementById("player-name");
@@ -1567,6 +1653,7 @@ function handleRemoteTimeout(winner: PieceColor, clock: ClockSnapshot): void {
   render();
   showGameBanner(`Time's up! ${colorName(winner)} wins.`, "result");
   showRematchButton();
+  saveCompletedGame(winner === "w" ? "1-0" : "0-1", "timeout");
 }
 
 function startGameFromServerFen(fen: string, clockInitialMs: number, clockSnapshots?: any[]) {
@@ -1628,6 +1715,7 @@ async function initMultiplayerMode(id: string): Promise<void> {
         if (mpControlsElement) mpControlsElement.hidden = true;
         showGameBanner(`${colorName(loser)} resigned. ${colorName(winner)} wins!`, "result");
         showRematchButton();
+        saveCompletedGame(winner === "w" ? "1-0" : "0-1", "resign");
         renderSessionState();
       },
       onDrawOffer: (from) => {
@@ -1642,6 +1730,7 @@ async function initMultiplayerMode(id: string): Promise<void> {
         if (mpControlsElement) mpControlsElement.hidden = true;
         showGameBanner("Game drawn by agreement.", "result");
         showRematchButton();
+        saveCompletedGame("1/2-1/2", "agreement");
         renderSessionState();
       },
       onAddTime: (from, to, addedMs, clock) => {
