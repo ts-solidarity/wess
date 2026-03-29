@@ -958,7 +958,7 @@ async function commitMove(from: string, to: string, promotion?: string, options:
   session.clockSnapshots[session.currentPly] = {
     whiteMs: currentClock.whiteMs + (moverColor === "w" ? increment : 0),
     blackMs: currentClock.blackMs + (moverColor === "b" ? increment : 0),
-    activeColor: afterState.result.over || clockGrace ? null : afterState.turn,
+    activeColor: afterState.result.over || clockGrace || !mp.isMultiplayer() ? null : afterState.turn,
   };
   session.liveClockStartedAt = Date.now();
   await queueSceneAnimation(() => animateSceneMove(record, afterState, {
@@ -1364,7 +1364,10 @@ function openPlayground() {
     showDraft("b", () => {
       const blackPlacements = getCurrentPlacements();
       const fen = draftsToFen(whitePlacements, blackPlacements);
+      // Timeless: set huge clock so it never expires, null activeColor so clocks don't tick
+      session.clockInitialMs = 99999999;
       startGameFromFen(fen);
+      session.clockSnapshots[0] = { whiteMs: 99999999, blackMs: 99999999, activeColor: null };
       setSessionNote("Playground — no clocks, control both sides.", "ready");
     });
   });
