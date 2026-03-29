@@ -658,7 +658,15 @@ export function createBoardScene({
     removeScenePiece,
     resetScenePiecesFromSnapshot,
     syncFxLayerSize,
-    updateBoardClocks(whiteMs: number, blackMs: number, activeColor: string | null) {
+    updateBoardClocks(whiteMs: number, blackMs: number, activeColor: string | null, showClocks: boolean = true) {
+      if (!clockLayer) return;
+
+      if (!showClocks) {
+        clockLayer.hidden = true;
+        return;
+      }
+      clockLayer.hidden = false;
+
       const wMin = Math.floor(Math.max(whiteMs, 0) / 60000);
       const wSec = Math.floor((Math.max(whiteMs, 0) % 60000) / 1000);
       const bMin = Math.floor(Math.max(blackMs, 0) / 60000);

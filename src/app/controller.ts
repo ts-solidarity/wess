@@ -542,7 +542,7 @@ function renderClockState() {
     blackValue.textContent = formatClockValue(snapshot.blackMs);
   }
 
-  updateBoardClocks(snapshot.whiteMs, snapshot.blackMs, activeColor);
+  updateBoardClocks(snapshot.whiteMs, snapshot.blackMs, activeColor, mp.isMultiplayer());
 
   if (
     !hasClockExpired()
