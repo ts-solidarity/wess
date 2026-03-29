@@ -236,9 +236,9 @@ export function createBoardInput({
         return;
       }
 
-      if (piece?.color === currentState.turn) {
-        const pieceMoves = getPieceMoves(square);
-        setSelectedSquare(pieceMoves.length > 0 ? square : null);
+      const pieceMoves = piece ? getPieceMoves(square) : [];
+      if (pieceMoves.length > 0) {
+        setSelectedSquare(square);
         setLegalMoves(pieceMoves);
         render();
         return;
@@ -249,7 +249,7 @@ export function createBoardInput({
       return;
     }
 
-    if (piece?.color === currentState.turn && !currentState.result.over && !hasClockExpired()) {
+    if (piece && !currentState.result.over && !hasClockExpired()) {
       const pieceMoves = getPieceMoves(square);
       if (pieceMoves.length > 0) {
         setSelectedSquare(square);

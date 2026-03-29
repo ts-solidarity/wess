@@ -30,7 +30,8 @@ let currentCallback: ((route: Route) => void) | null = null;
 
 export function navigate(path: string): void {
   history.pushState(null, "", path);
-  currentCallback?.(parseRoute(path));
+  const url = new URL(path, window.location.origin);
+  currentCallback?.(parseRoute(url.pathname));
 }
 
 export function startRouter(onChange: (route: Route) => void): void {

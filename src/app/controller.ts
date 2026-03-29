@@ -1032,12 +1032,18 @@ async function commitMove(from: string, to: string, promotion?: string, options:
 }
 
 function getPieceMoves(square: string) {
-  if (mp.isMultiplayer() && !mp.isMyTurn(currentState.turn)) return [];
+  // Allow seeing moves for premove (your color pieces, opponent's turn)
+  if (mp.isMultiplayer() && !mp.isMyTurn(currentState.turn)) {
+    const piece = game.getPiece(square);
+    if (piece && piece.color === mp.getPlayerColor()) {
+      return game.getLegalMoves(square);
+    }
+    return [];
+  }
   return game.getLegalMoves(square);
 }
 
 function canStartDragFromSquare(square: string) {
-  if (mp.isMultiplayer() && !mp.isMyTurn(currentState.turn)) return false;
   return getPieceMoves(square).length > 0;
 }
 
