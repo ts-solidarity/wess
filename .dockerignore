@@ -1,0 +1,8 @@
+node_modules
+dist
+.claude
+.playwright-mcp
+.tmp-ui
+test-results
+screenshots
+*.png
