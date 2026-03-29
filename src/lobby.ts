@@ -152,6 +152,8 @@ function initNavigation() {
       const nav = link.dataset.nav;
       if (nav === "about") {
         navigate("/about");
+      } else if (nav === "terms") {
+        navigate("/terms");
       } else if (nav === "play") {
         navigate("/");
       }
