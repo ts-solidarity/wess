@@ -210,10 +210,24 @@ async function handleCreateGame(req, res) {
   const draftTimeMs = Number(body.draftTimeMs) > 0 ? Math.min(300000, Math.max(30000, Number(body.draftTimeMs))) : 120000;
 
   const playerName = String(body.playerName || "Player").slice(0, 20);
+  let preferred = body.preferredColor;
+  if (preferred === "random") preferred = Math.random() < 0.5 ? "w" : "b";
+  const creatorColor = preferred === "b" ? "b" : "w";
+
   const { room, whiteToken } = createRoom(clockInitialMs, draftTimeMs);
   room.incrementMs = incrementMs;
-  room.playerNames.w = playerName;
-  sendJson(res, 201, { gameId: room.id, playerToken: whiteToken, color: "w", draftTimeMs, clockInitialMs, incrementMs });
+
+  if (creatorColor === "w") {
+    room.playerNames.w = playerName;
+    sendJson(res, 201, { gameId: room.id, playerToken: whiteToken, color: "w", draftTimeMs, clockInitialMs, incrementMs });
+  } else {
+    // Creator wants black — leave white slot empty, put creator in black
+    room.players.w = null;
+    const blackToken = generateToken();
+    room.players.b = { token: blackToken };
+    room.playerNames.b = playerName;
+    sendJson(res, 201, { gameId: room.id, playerToken: blackToken, color: "b", draftTimeMs, clockInitialMs, incrementMs });
+  }
 }
 
 async function handleJoinGame(req, res, gameId) {
@@ -229,11 +243,19 @@ async function handleJoinGame(req, res, gameId) {
   const body = await parseBody(req);
   const joinName = String(body.playerName || "Player").slice(0, 20);
 
+  if (!room.players.w) {
+    const whiteToken = generateToken();
+    room.players.w = { token: whiteToken };
+    if (!room.playerNames.w) room.playerNames.w = joinName;
+    broadcast(room, { type: "join", color: "w", name: room.playerNames.w });
+    return sendJson(res, 200, { playerToken: whiteToken, color: "w" });
+  }
+
   if (!room.players.b) {
     const blackToken = generateToken();
     room.players.b = { token: blackToken };
-    room.playerNames.b = joinName;
-    broadcast(room, { type: "join", color: "b", name: joinName });
+    if (!room.playerNames.b) room.playerNames.b = joinName;
+    broadcast(room, { type: "join", color: "b", name: room.playerNames.b });
     return sendJson(res, 200, { playerToken: blackToken, color: "b" });
   }
 
@@ -384,7 +406,7 @@ async function handleSubmitMove(req, res, gameId) {
   // Clock only becomes active from move 3 onwards
   // Add increment to the mover's clock (only after grace period)
   const moverKey = color === "w" ? "whiteMs" : "blackMs";
-  const increment = moveCount >= 2 ? (room.incrementMs || 0) : 0;
+  const increment = moveCount >= 3 ? (room.incrementMs || 0) : 0;
 
   const clockActive = moveCount >= 2 ? nextTurn : null;
   room.clockSnapshots.push({
@@ -407,7 +429,7 @@ async function handleSubmitMove(req, res, gameId) {
   const ply = room.moves.length;
   const clock = { ...room.clockSnapshots[room.clockSnapshots.length - 1] };
 
-  broadcast(room, { type: "move", move, ply, clock, timestamp: now });
+  broadcast(room, { type: "move", move, ply, clock, timestamp: now, firstMoveDeadline: room.firstMoveDeadline });
   sendJson(res, 200, { ok: true, ply });
 }
 
@@ -494,17 +516,19 @@ function handleRematch(req, res, gameId) {
     sendJson(res, 200, { ok: true, status: "offered" });
   } else if (room.rematchOffer !== color) {
     // Both agreed — create new game with swapped colors
-    const { room: newRoom, whiteToken } = createRoom(room.clockInitialMs, room.draftTimeMs);
+    const { room: newRoom } = createRoom(room.clockInitialMs, room.draftTimeMs);
     newRoom.incrementMs = room.incrementMs || 0;
-    // Swap colors: old white → new black, old black → new white
-    newRoom.playerNames.w = room.playerNames.b || "Player";
-    newRoom.playerNames.b = room.playerNames.w || "Player";
-    // Old black becomes new white
-    newRoom.players.w = { token: whiteToken };
+    // Leave both player slots empty — players join naturally via /join
+    newRoom.players.w = null;
+    newRoom.players.b = null;
+    // Randomly assign names to colors
+    const swap = Math.random() < 0.5;
+    newRoom.playerNames.w = swap ? (room.playerNames.w || "Player") : (room.playerNames.b || "Player");
+    newRoom.playerNames.b = swap ? (room.playerNames.b || "Player") : (room.playerNames.w || "Player");
 
     room.rematchGameId = newRoom.id;
 
-    broadcast(room, { type: "rematch-accepted", newGameId: newRoom.id, whiteToken });
+    broadcast(room, { type: "rematch-accepted", newGameId: newRoom.id });
     sendJson(res, 200, { ok: true, status: "accepted", newGameId: newRoom.id });
   } else {
     sendJson(res, 400, { error: "Already offered rematch" });

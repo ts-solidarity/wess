@@ -21,7 +21,7 @@ export interface GameState {
 }
 
 export interface MultiplayerHandlers {
-  onMove: (move: TimelineMove, clock: ClockSnapshot) => void;
+  onMove: (move: TimelineMove, clock: ClockSnapshot, firstMoveDeadline?: number | null) => void;
   onJoin: (name?: string) => void;
   onTimeout: (winner: PieceColor, clock: ClockSnapshot) => void;
   onSync: (state: {
@@ -30,7 +30,7 @@ export interface MultiplayerHandlers {
     clockSnapshots: ClockSnapshot[];
     timeoutWinner: PieceColor | null;
   }) => void;
-  onDraftComplete: (fen: string) => void;
+  onDraftComplete: (fen: string, firstMoveDeadline?: number) => void;
   onGameCancelled: (reason: string) => void;
   onResign: (loser: PieceColor, winner: PieceColor) => void;
   onDrawOffer: (from: PieceColor) => void;
@@ -77,11 +77,11 @@ export function detectMultiplayerRoute(): { gameId: string } | null {
   return match ? { gameId: match[1] } : null;
 }
 
-export async function createGame(clockInitialMs: number, draftTimeMs: number = 120000, incrementMs: number = 0, playerName: string = "Player"): Promise<{ gameId: string }> {
+export async function createGame(clockInitialMs: number, draftTimeMs: number = 120000, incrementMs: number = 0, playerName: string = "Player", preferredColor: "w" | "b" | "random" = "random"): Promise<{ gameId: string }> {
   const res = await fetch("/api/games", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clockInitialMs, draftTimeMs, incrementMs, playerName }),
+    body: JSON.stringify({ clockInitialMs, draftTimeMs, incrementMs, playerName, preferredColor }),
   });
 
   if (!res.ok) throw new Error("Failed to create game");
@@ -219,7 +219,7 @@ export function connectEvents(id: string, handlers: MultiplayerHandlers): void {
 
       switch (data.type) {
         case "move":
-          handlers.onMove(data.move, data.clock);
+          handlers.onMove(data.move, data.clock, data.firstMoveDeadline);
           break;
         case "join":
           handlers.onJoin(data.name);
@@ -231,7 +231,7 @@ export function connectEvents(id: string, handlers: MultiplayerHandlers): void {
           handlers.onSync(data);
           break;
         case "draft-complete":
-          handlers.onDraftComplete(data.fen);
+          handlers.onDraftComplete(data.fen, data.firstMoveDeadline);
           break;
         case "game-cancelled":
           handlers.onGameCancelled(data.reason ?? "Game cancelled");

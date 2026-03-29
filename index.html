@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wess</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 28 28' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6,20 L4,9 L10,14 L14,5 L18,14 L24,9 L22,20 Z' fill='%23c9a227' opacity='0.25' stroke='%23c9a227' stroke-width='1.3' stroke-linejoin='round'/%3E%3Ccircle cx='4' cy='9' r='1.5' fill='%23c9a227' opacity='0.7'/%3E%3Ccircle cx='14' cy='5' r='1.5' fill='%23c9a227' opacity='0.7'/%3E%3Ccircle cx='24' cy='9' r='1.5' fill='%23c9a227' opacity='0.7'/%3E%3Crect x='6' y='20' width='16' height='4' rx='1' fill='%23c9a227' opacity='0.5' stroke='%23c9a227' stroke-width='1'/%3E%3Cline x1='14' y1='12' x2='14' y2='18' stroke='%23c9a227' stroke-width='1.6' stroke-linecap='round'/%3E%3Cline x1='11' y1='15' x2='17' y2='15' stroke='%23c9a227' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -17,15 +18,25 @@
     <header class="site-header">
       <div class="header-inner">
         <a href="/" class="site-logo" aria-label="Wess home">
-          <svg class="logo-mark" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9"/>
+          <svg class="logo-mark" viewBox="0 0 28 28" width="28" height="28" fill="none">
+            <!-- Crown base -->
+            <path d="M6,20 L4,9 L10,14 L14,5 L18,14 L24,9 L22,20 Z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+            <!-- Crown gems -->
+            <circle cx="4" cy="9" r="1.5" fill="currentColor" opacity="0.6"/>
+            <circle cx="14" cy="5" r="1.5" fill="currentColor" opacity="0.6"/>
+            <circle cx="24" cy="9" r="1.5" fill="currentColor" opacity="0.6"/>
+            <!-- Base band -->
+            <rect x="6" y="20" width="16" height="4" rx="1" fill="currentColor" opacity="0.4" stroke="currentColor" stroke-width="1"/>
+            <!-- Plus sign (customization) -->
+            <line x1="14" y1="12" x2="14" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="11" y1="15" x2="17" y2="15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
           </svg>
           <span class="logo-text">wess</span>
         </a>
 
         <nav class="site-nav" aria-label="Main navigation">
           <a href="#" class="nav-link active" data-nav="play">
-            <svg class="nav-icon" viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+            <svg class="nav-icon" viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
               <path d="M6.5 3a1.5 1.5 0 0 1 1.5 1.5v.5h4v-.5a1.5 1.5 0 0 1 3 0V5a1 1 0 0 1-1 1h-1l1.5 5H15a1 1 0 0 1 .97 1.24l-1 4A1 1 0 0 1 14 17H6a1 1 0 0 1-.97-.76l-1-4A1 1 0 0 1 5 11h.5L7 6H6a1 1 0 0 1-1-1v-.5A1.5 1.5 0 0 1 6.5 3z"/>
             </svg>
             Play
@@ -34,17 +45,6 @@
         </nav>
 
         <div class="header-right">
-          <button class="header-icon-btn" type="button" aria-label="Search">
-            <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
-              <circle cx="9" cy="9" r="6"/><line x1="14" y1="14" x2="18" y2="18"/>
-            </svg>
-          </button>
-          <button class="header-icon-btn" type="button" aria-label="Notifications">
-            <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M10 2a5 5 0 0 0-5 5v3l-1.5 2.5a.5.5 0 0 0 .43.75h12.14a.5.5 0 0 0 .43-.75L15 10V7a5 5 0 0 0-5-5z"/>
-              <path d="M8 15.5a2 2 0 0 0 4 0"/>
-            </svg>
-          </button>
           <button class="header-icon-btn theme-toggle-btn" id="theme-toggle" type="button" aria-label="Toggle theme">
             <svg class="theme-icon-dark" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
               <circle cx="10" cy="10" r="4"/><path d="M10 2v2m0 12v2M2 10h2m12 0h2m-3.2-5.8-1.4 1.4M6.6 13.4l-1.4 1.4m0-9.6 1.4 1.4m7.2 7.2 1.4 1.4"/>
@@ -53,7 +53,6 @@
               <path d="M17.3 11.3A7 7 0 1 1 8.7 2.7a5.5 5.5 0 0 0 8.6 8.6z"/>
             </svg>
           </button>
-          <button class="sign-in-btn" type="button">Sign In</button>
         </div>
       </div>
     </header>
@@ -118,153 +117,64 @@
           </div>
         </div>
 
-        <div class="create-game-section">
-          <h3 class="subsection-heading">Create a Game</h3>
-          <div class="create-game-form">
-            <div class="form-row">
-              <label class="form-label">Minutes</label>
-              <div class="range-input-wrap">
-                <input type="range" class="range-input" id="time-range" min="1" max="60" value="10" />
-                <output class="range-value" id="time-value">10</output>
-              </div>
-            </div>
-            <div class="form-row">
-              <label class="form-label">Increment</label>
-              <div class="range-input-wrap">
-                <input type="range" class="range-input" id="increment-range" min="0" max="30" value="0" />
-                <output class="range-value" id="increment-value">0</output>
-              </div>
-            </div>
-            <div class="form-row">
-              <label class="form-label">Play as</label>
-              <div class="color-picker">
-                <button class="color-btn active" data-color="random" type="button">
-                  <span class="color-half white"></span><span class="color-half black"></span>
-                </button>
-                <button class="color-btn" data-color="white" type="button">
-                  <span class="color-half white full"></span>
-                </button>
-                <button class="color-btn" data-color="black" type="button">
-                  <span class="color-half black full"></span>
-                </button>
-              </div>
-            </div>
-            <div class="form-row">
-              <label class="form-label">Draft time</label>
-              <div class="range-input-wrap">
-                <input type="range" class="range-input" id="draft-time-range" min="30" max="300" value="120" step="30" />
-                <output class="range-value" id="draft-time-value">2:00</output>
-              </div>
-            </div>
-            <button class="create-game-btn" type="button">Create Game</button>
-          </div>
-        </div>
-
         <button class="playground-btn" type="button">Playground</button>
       </section>
 
-      <!-- Center Column: Board Placeholder -->
+      <!-- Center Column: Board Placeholder + Create Game Panel -->
       <section class="lobby-center" aria-label="Featured game">
         <div class="board-placeholder" id="board-placeholder">
           <div class="placeholder-grid" aria-hidden="true"></div>
           <div class="placeholder-overlay">
-            <div class="placeholder-cta">
+            <!-- Default: Play Now CTA -->
+            <div class="placeholder-cta" id="play-now-cta">
               <p class="placeholder-tagline">Your next move awaits</p>
               <button class="play-now-btn" type="button">Play Now</button>
             </div>
+
+            <!-- Create game form (replaces CTA when Play Now is clicked) -->
+            <div id="create-game-panel" class="create-game-panel" hidden>
+              <div class="create-game-form">
+                <div class="form-row">
+                  <label class="form-label">Minutes</label>
+                  <div class="range-input-wrap">
+                    <input type="range" class="range-input" id="time-range" min="1" max="60" value="10" />
+                    <output class="range-value" id="time-value">10</output>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Increment</label>
+                  <div class="range-input-wrap">
+                    <input type="range" class="range-input" id="increment-range" min="0" max="30" value="0" />
+                    <output class="range-value" id="increment-value">0</output>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Play as</label>
+                  <div class="color-picker">
+                    <button class="color-btn active" data-color="random" type="button">
+                      <span class="color-half white"></span><span class="color-half black"></span>
+                    </button>
+                    <button class="color-btn" data-color="white" type="button">
+                      <span class="color-half white full"></span>
+                    </button>
+                    <button class="color-btn" data-color="black" type="button">
+                      <span class="color-half black full"></span>
+                    </button>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Draft time</label>
+                  <div class="range-input-wrap">
+                    <input type="range" class="range-input" id="draft-time-range" min="30" max="300" value="120" step="30" />
+                    <output class="range-value" id="draft-time-value">2:00</output>
+                  </div>
+                </div>
+                <button class="create-game-btn" type="button">Create Game</button>
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="featured-bar">
-          <span class="featured-dot"></span>
-          <span class="featured-label">Featured Game</span>
-          <span class="featured-players">Magnus C. vs Hikaru N.</span>
         </div>
       </section>
-
-      <!-- Right Column: Activity & Community -->
-      <aside class="lobby-aside" aria-label="Community activity">
-        <div class="online-widget">
-          <div class="online-count">
-            <span class="pulse-dot"></span>
-            <strong>2,847</strong> players online
-          </div>
-          <div class="online-breakdown">
-            <span><strong>312</strong> games</span>
-            <span class="dot-sep"></span>
-            <span><strong>48</strong> tournaments</span>
-          </div>
-        </div>
-
-        <div class="activity-section">
-          <h3 class="subsection-heading">Recent Games</h3>
-          <ul class="activity-feed">
-            <li class="activity-item win">
-              <span class="activity-result">1-0</span>
-              <div class="activity-detail">
-                <span class="activity-players">You vs. GuestKnight</span>
-                <span class="activity-meta">Blitz 3+2 &middot; 2m ago</span>
-              </div>
-            </li>
-            <li class="activity-item loss">
-              <span class="activity-result">0-1</span>
-              <div class="activity-detail">
-                <span class="activity-players">TacticMaster vs. You</span>
-                <span class="activity-meta">Rapid 10+0 &middot; 18m ago</span>
-              </div>
-            </li>
-            <li class="activity-item draw">
-              <span class="activity-result">&frac12;-&frac12;</span>
-              <div class="activity-detail">
-                <span class="activity-players">You vs. Pawn_Storm</span>
-                <span class="activity-meta">Bullet 1+0 &middot; 1h ago</span>
-              </div>
-            </li>
-            <li class="activity-item win">
-              <span class="activity-result">1-0</span>
-              <div class="activity-detail">
-                <span class="activity-players">You vs. Bishop42</span>
-                <span class="activity-meta">Blitz 5+0 &middot; 3h ago</span>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <div class="tournaments-section">
-          <h3 class="subsection-heading">Tournaments</h3>
-          <ul class="tournament-list">
-            <li class="tournament-item">
-              <div class="tournament-info">
-                <span class="tournament-name">Weekly Blitz Arena</span>
-                <span class="tournament-meta">Starts in 24 min &middot; 89 players</span>
-              </div>
-              <button class="join-btn" type="button">Join</button>
-            </li>
-            <li class="tournament-item">
-              <div class="tournament-info">
-                <span class="tournament-name">Rapid Shield</span>
-                <span class="tournament-meta">In progress &middot; 214 players</span>
-              </div>
-              <button class="join-btn" type="button">Watch</button>
-            </li>
-            <li class="tournament-item">
-              <div class="tournament-info">
-                <span class="tournament-name">Bullet Brawl</span>
-                <span class="tournament-meta">Tomorrow 18:00 &middot; 42 players</span>
-              </div>
-              <button class="join-btn" type="button">Join</button>
-            </li>
-          </ul>
-        </div>
-
-        <div class="leaderboard-peek">
-          <h3 class="subsection-heading">Top Players</h3>
-          <ol class="leaderboard-list">
-            <li><span class="lb-rank">1</span><span class="lb-name">DrNykterstein</span><span class="lb-rating">2847</span></li>
-            <li><span class="lb-rank">2</span><span class="lb-name">penguingm1</span><span class="lb-rating">2812</span></li>
-            <li><span class="lb-rank">3</span><span class="lb-name">FireTheKing</span><span class="lb-rating">2790</span></li>
-          </ol>
-        </div>
-      </aside>
     </main>
 
     <!-- ============================================
@@ -320,6 +230,19 @@
          ============================================ -->
     <main class="game-page" data-view="game" hidden>
 
+      <!-- Waiting for opponent overlay -->
+      <div id="waiting-overlay" class="waiting-overlay" hidden>
+        <div class="waiting-content">
+          <div class="waiting-spinner"></div>
+          <h2 class="waiting-title">Waiting for opponent</h2>
+          <p class="waiting-subtitle">Share this link to invite a player</p>
+          <div class="waiting-link-row">
+            <code id="waiting-link" class="waiting-link"></code>
+            <button id="waiting-copy-btn" class="game-ctrl-btn small" type="button">Copy</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Draft overlay -->
       <div id="draft-overlay" class="draft-overlay" hidden>
         <div class="draft-layout">
@@ -354,19 +277,17 @@
 
       <div class="game-layout">
 
-        <!-- Board column: player bars + board -->
+        <!-- Board column -->
         <div class="game-board-col">
-          <div class="player-bar player-bar-top">
-            <span class="player-name" id="opponent-name">Opponent</span>
-            <div id="black-clock" class="clock-face" data-color="b">
-              <span class="clock-label">Black</span>
-              <strong class="clock-value">05:00</strong>
-            </div>
-          </div>
-
           <section class="board-panel">
             <div class="board-wrap">
               <div id="board" class="board" aria-label="Chess board"></div>
+            </div>
+            <div class="board-nameplate nameplate-top">
+              <span class="nameplate-text" id="opponent-name">Opponent</span>
+            </div>
+            <div class="board-nameplate nameplate-bottom">
+              <span class="nameplate-text" id="player-name">You</span>
             </div>
             <div class="sr-only" aria-live="polite">
               <span id="status-text">White to move.</span>
@@ -377,12 +298,14 @@
             </div>
           </section>
 
-          <div class="player-bar player-bar-bottom">
-            <span class="player-name" id="player-name">You</span>
-            <div id="white-clock" class="clock-face" data-color="w">
-              <span class="clock-label">White</span>
-              <strong class="clock-value">05:00</strong>
-            </div>
+          <!-- Hidden clocks (time shown on board squares) -->
+          <div id="black-clock" class="clock-face" data-color="b" hidden>
+            <span class="clock-label">Black</span>
+            <strong class="clock-value">05:00</strong>
+          </div>
+          <div id="white-clock" class="clock-face" data-color="w" hidden>
+            <span class="clock-label">White</span>
+            <strong class="clock-value">05:00</strong>
           </div>
         </div>
 
@@ -396,7 +319,7 @@
             <div class="game-controls-bar">
               <button id="reset-button" class="game-ctrl-btn" type="button" title="New Game">New</button>
               <button id="flip-button" class="game-ctrl-btn" type="button" title="Flip Board">Flip</button>
-              <button id="online-button" class="game-ctrl-btn accent" type="button" title="Play Online">Online</button>
+              <span id="online-button" class="connection-status disconnected">Offline</span>
             </div>
             <div class="game-controls-bar mp-controls" id="mp-controls" hidden>
               <button id="resign-button" class="game-ctrl-btn danger" type="button">Resign</button>

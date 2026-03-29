@@ -41,7 +41,7 @@ async function getLayoutMetrics(page: Page) {
         height: window.innerHeight,
       },
       board: rect("#board"),
-      clocks: rect(".player-bar-top"),
+      clocks: rect(".nameplate-top"),
       tabs: rect("#utility-tablist"),
       drawer: rect("#utility-drawer"),
     };

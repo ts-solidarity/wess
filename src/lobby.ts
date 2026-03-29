@@ -83,11 +83,20 @@ const TC_PRESETS: Record<string, { clock: number; increment: number }> = {
   classical: { clock: 1800000, increment: 0 },
 };
 
-async function createAndNavigate(clockMs: number, draftMs: number, incrementMs: number = 0) {
+function getSelectedColor(): "w" | "b" | "random" {
+  const active = document.querySelector<HTMLButtonElement>(".color-btn.active");
+  const val = active?.dataset.color;
+  if (val === "white") return "w";
+  if (val === "black") return "b";
+  return "random";
+}
+
+async function createAndNavigate(clockMs: number, draftMs: number, incrementMs: number = 0, preferredColor?: "w" | "b" | "random") {
   try {
     mp.resetState();
     const name = getPlayerName();
-    const result = await mp.createGame(clockMs, draftMs, incrementMs, name);
+    const color = preferredColor ?? "random";
+    const result = await mp.createGame(clockMs, draftMs, incrementMs, name, color);
     window.location.href = `/game/${result.gameId}`;
   } catch {
     alert("Could not create game. Is the server running?");
@@ -95,9 +104,12 @@ async function createAndNavigate(clockMs: number, draftMs: number, incrementMs: 
 }
 
 function initNavigation() {
-  // Play Now → multiplayer with defaults
+  // Play Now → show create game panel, hide CTA
+  const createPanel = document.getElementById("create-game-panel");
+  const playNowCta = document.getElementById("play-now-cta");
   document.querySelector(".play-now-btn")?.addEventListener("click", () => {
-    createAndNavigate(DEFAULT_CLOCK_MS, DEFAULT_DRAFT_MS, DEFAULT_INCREMENT_MS);
+    if (playNowCta) playNowCta.hidden = true;
+    if (createPanel) createPanel.hidden = false;
   });
 
   // Quick play time control cards → multiplayer with preset
@@ -117,7 +129,7 @@ function initNavigation() {
     const clockMs = (Number(timeRange?.value) || 10) * 60000;
     const incrementMs = (Number(incRange?.value) || 0) * 1000;
     const draftMs = (Number(draftRange?.value) || 120) * 1000;
-    createAndNavigate(clockMs, draftMs, incrementMs);
+    createAndNavigate(clockMs, draftMs, incrementMs, getSelectedColor());
   });
 
   // Playground → local timeless

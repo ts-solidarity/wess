@@ -336,6 +336,56 @@ export function createBoardScene({
     scene.fxContext!.clearRect(0, 0, rect.width, rect.height);
   }
 
+  // Board clock overlay state (hoisted for access in updateBoardClocks)
+  let clockLayer: HTMLDivElement | null = null;
+  const clockElements: Record<string, HTMLDivElement> = {};
+  const clockRoles = ["wMin", "wSec", "bMin", "bSec"];
+
+  function positionClockDigits() {
+    if (!clockLayer) return;
+    const { cellSize } = getBoardMetrics();
+    if (cellSize <= 0) return;
+
+    // Squares: wMin=d4, wSec=e4, bMin=d5, bSec=e5
+    // When flipped, swap left/right so minutes stays visually left
+    const a1Cell = getVisualCellForSquare("a1");
+    const flipped = a1Cell ? a1Cell.col > 0 : false;
+    const squares = flipped
+      ? ["e4", "d4", "e5", "d5"]
+      : ["d4", "e4", "d5", "e5"];
+
+    // Corner alignment within each square [justifyContent, alignItems]:
+    // Normal (white view):  wMin=right,top  wSec=left,top  bMin=right,bottom  bSec=left,bottom
+    // Flipped (black view): everything mirrors — top↔bottom, left↔right
+    const aligns: [string, string][] = flipped
+      ? [
+          ["flex-end", "flex-end"],    // wMin: right, bottom
+          ["flex-start", "flex-end"],  // wSec: left, bottom
+          ["flex-end", "flex-start"],  // bMin: right, top
+          ["flex-start", "flex-start"],// bSec: left, top
+        ]
+      : [
+          ["flex-end", "flex-start"],  // wMin: right, top
+          ["flex-start", "flex-start"],// wSec: left, top
+          ["flex-end", "flex-end"],    // bMin: right, bottom
+          ["flex-start", "flex-end"],  // bSec: left, bottom
+        ];
+
+    for (let i = 0; i < 4; i++) {
+      const cell = getVisualCellForSquare(squares[i]);
+      if (!cell) continue;
+      const el = clockElements[clockRoles[i]];
+      if (!el) continue;
+      el.style.left = `${cell.col * cellSize}px`;
+      el.style.top = `${cell.row * cellSize}px`;
+      el.style.width = `${cellSize}px`;
+      el.style.height = `${cellSize}px`;
+      el.style.fontSize = `${Math.max(10, cellSize * 0.22)}px`;
+      el.style.justifyContent = aligns[i][0];
+      el.style.alignItems = aligns[i][1];
+    }
+  }
+
   function initializeBoardScene(eventHandlers: BoardEventHandlers): void {
     boardElement.innerHTML = "";
     scene.squareElements = [];
@@ -381,7 +431,20 @@ export function createBoardScene({
       scene.fileLayer.append(fileLabel);
     }
 
-    boardElement.append(scene.squareLayer, scene.fxLayer, scene.pieceLayer);
+    // Board clock overlay — digits rendered on squares, behind pieces
+    clockLayer = document.createElement("div");
+    clockLayer.className = "board-layer clock-overlay-layer";
+    clockLayer.setAttribute("aria-hidden", "true");
+
+    for (let i = 0; i < 4; i++) {
+      const el = document.createElement("div");
+      el.className = "board-clock-digit";
+      el.dataset.clockRole = clockRoles[i];
+      clockElements[clockRoles[i]] = el;
+      clockLayer.appendChild(el);
+    }
+
+    boardElement.append(scene.squareLayer, scene.fxLayer, scene.pieceLayer, clockLayer);
     (boardElement.parentElement ?? boardElement).append(scene.rankLayer, scene.fileLayer);
 
     boardElement.addEventListener("click", eventHandlers.handleBoardClick);
@@ -595,6 +658,21 @@ export function createBoardScene({
     removeScenePiece,
     resetScenePiecesFromSnapshot,
     syncFxLayerSize,
+    updateBoardClocks(whiteMs: number, blackMs: number, activeColor: string | null) {
+      const wMin = Math.floor(Math.max(whiteMs, 0) / 60000);
+      const wSec = Math.floor((Math.max(whiteMs, 0) % 60000) / 1000);
+      const bMin = Math.floor(Math.max(blackMs, 0) / 60000);
+      const bSec = Math.floor((Math.max(blackMs, 0) % 60000) / 1000);
+
+      clockElements.wMin.textContent = String(wMin);
+      clockElements.wSec.textContent = String(wSec).padStart(2, "0");
+      clockElements.bMin.textContent = String(bMin);
+      clockElements.bSec.textContent = String(bSec).padStart(2, "0");
+
+      clockLayer?.classList.toggle("clock-w-active", activeColor === "w");
+      clockLayer?.classList.toggle("clock-b-active", activeColor === "b");
+      positionClockDigits();
+    },
     updatePieceElement,
   };
 }

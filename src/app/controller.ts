@@ -160,6 +160,7 @@ const {
   refreshBoardScene,
   resetScenePiecesFromSnapshot,
   syncFxLayerSize,
+  updateBoardClocks,
 } = boardScene;
 
 function getFxProfile() {
@@ -493,6 +494,29 @@ function hideGameBanner() {
   if (gameBanner) gameBanner.hidden = true;
 }
 
+let firstMoveTimer: ReturnType<typeof setInterval> | null = null;
+
+function startFirstMoveCountdown(deadlineMs: number) {
+  stopFirstMoveCountdown();
+  firstMoveTimer = setInterval(() => {
+    const remaining = Math.max(0, deadlineMs - Date.now());
+    const secs = Math.ceil(remaining / 1000);
+    if (remaining > 0) {
+      const whoseTurn = session.moves.length === 0 ? "White" : "Black";
+      showGameBanner(`${whoseTurn}'s first move — ${secs}s`, "info");
+    } else {
+      stopFirstMoveCountdown();
+    }
+  }, 250);
+}
+
+function stopFirstMoveCountdown() {
+  if (firstMoveTimer) {
+    clearInterval(firstMoveTimer);
+    firstMoveTimer = null;
+  }
+}
+
 function renderClockState() {
   if (gameBoardCol) gameBoardCol.dataset.orientation = orientation;
 
@@ -517,6 +541,8 @@ function renderClockState() {
   if (blackValue) {
     blackValue.textContent = formatClockValue(snapshot.blackMs);
   }
+
+  updateBoardClocks(snapshot.whiteMs, snapshot.blackMs, activeColor);
 
   if (
     !hasClockExpired()
@@ -806,6 +832,9 @@ function renderStatus(state: PublicSnapshot) {
     if (mpControlsElement) mpControlsElement.hidden = true;
     showRematchButton();
   } else if (!state.result.over && !session.timeoutWinner && mp.isMultiplayer()) {
+    if (session.moves.length > 0 && firstMoveTimer) {
+      stopFirstMoveCountdown();
+    }
     const lastMove = state.moveHistory.length > 0 ? state.moveHistory[state.moveHistory.length - 1] : null;
     if (state.check && lastMove) {
       showGameBanner(`${lastMove.notation} — ${colorName(state.turn)} is in check!`, "warn");
@@ -922,13 +951,14 @@ async function commitMove(from: string, to: string, promotion?: string, options:
   session.clockSnapshots[session.currentPly - 1] = currentClock;
 
   // During multiplayer grace period (first 2 moves), clocks don't tick
-  const inGracePeriod = mp.isMultiplayer() && session.moves.length < 2;
-  const increment = !inGracePeriod && mp.isMultiplayer() ? mp.getIncrementMs() : 0;
+  const clockGrace = mp.isMultiplayer() && session.moves.length < 2;
+  const incrementGrace = mp.isMultiplayer() && session.moves.length < 3;
+  const increment = !incrementGrace && mp.isMultiplayer() ? mp.getIncrementMs() : 0;
   const moverColor = afterState.turn === "w" ? "b" : "w"; // the player who just moved
   session.clockSnapshots[session.currentPly] = {
     whiteMs: currentClock.whiteMs + (moverColor === "w" ? increment : 0),
     blackMs: currentClock.blackMs + (moverColor === "b" ? increment : 0),
-    activeColor: afterState.result.over || inGracePeriod ? null : afterState.turn,
+    activeColor: afterState.result.over || clockGrace ? null : afterState.turn,
   };
   session.liveClockStartedAt = Date.now();
   await queueSceneAnimation(() => animateSceneMove(record, afterState, {
@@ -1020,7 +1050,7 @@ function updateBoardViewportSize() {
   const headerH = Math.round(Number.parseFloat(
     window.getComputedStyle(document.documentElement).getPropertyValue("--header-h"),
   ) || 52);
-  const fitHeight = Math.max(Math.floor(window.innerHeight - headerH - 88 - 32 - coordinateGutter - 2 * borderWidth), 0);
+  const fitHeight = Math.max(Math.floor(window.innerHeight - headerH - 40 - coordinateGutter - 2 * borderWidth), 0);
   const maxSize = settings.boardMaxSize > 0 ? settings.boardMaxSize : Math.min(availableWidth, fitHeight);
   const boardSize = Math.max(Math.floor(Math.min(maxSize, availableWidth)), 0);
 
@@ -1348,7 +1378,8 @@ resetButton.addEventListener("click", () => {
   if (isAnimationActive() || isReplayActive()) {
     return;
   }
-  openDraftThenStart();
+  // Navigate to lobby to create a new game
+  window.location.href = "/";
 });
 
 copyFenButton.addEventListener("click", async () => {
@@ -1390,8 +1421,9 @@ const drawButton = document.getElementById("draw-button");
 const addTimeButton = document.getElementById("add-time-button");
 
 function applyMultiplayerUiState(): void {
+  updateConnectionStatus();
   if (!mp.isMultiplayer()) return;
-  resetButton!.disabled = true;
+  resetButton!.disabled = false; // New Game always works — navigates to lobby
   saveSessionButton!.disabled = true;
   restoreSessionButton!.disabled = true;
   clearSessionButton!.disabled = true;
@@ -1447,7 +1479,13 @@ rematchBtn?.addEventListener("click", async () => {
   await mp.offerRematch();
 });
 
-function handleRemoteMove(move: TimelineMove, clock: ClockSnapshot): void {
+function handleRemoteMove(move: TimelineMove, clock: ClockSnapshot, firstMoveDeadline?: number | null): void {
+  // Update first-move countdown based on server state
+  if (firstMoveDeadline && firstMoveDeadline > Date.now()) {
+    startFirstMoveCountdown(firstMoveDeadline);
+  } else if (!firstMoveDeadline) {
+    stopFirstMoveCountdown();
+  }
   const expectedPly = session.moves.length + 1;
 
   // If this move is already applied locally (our own echo), just sync the clock
@@ -1499,12 +1537,16 @@ function setPlayerNames(names: { w: string | null; b: string | null }) {
   }
 }
 
+let onOpponentJoinCallback: (() => void) | null = null;
+
 function handleRemoteJoin(name?: string): void {
-  const myColor = mp.getPlayerColor();
   if (name && opponentNameElement && !mp.isSpectator()) {
     opponentNameElement.textContent = name;
   }
-  showGameBanner("Opponent has joined!", "info");
+  if (onOpponentJoinCallback) {
+    onOpponentJoinCallback();
+    onOpponentJoinCallback = null;
+  }
 }
 
 function handleRemoteTimeout(winner: PieceColor, clock: ClockSnapshot): void {
@@ -1548,14 +1590,21 @@ async function initMultiplayerMode(id: string): Promise<void> {
       orientation = "w";
     }
 
-    const handleDraftComplete = (fen: string) => {
+    const handleDraftComplete = (fen: string, firstMoveDeadline?: number) => {
       hideDraft();
       startGameFromServerFen(fen, result.state.clockInitialMs, result.state.clockSnapshots);
-      showGameBanner("Game started! Make your first move.", "info");
+      if (firstMoveDeadline) {
+        startFirstMoveCountdown(firstMoveDeadline);
+      } else {
+        showGameBanner("Game started! Make your first move.", "info");
+      }
     };
 
     const handleGameCancelled = (reason: string) => {
       hideDraft();
+      stopFirstMoveCountdown();
+      session.timeoutWinner = "w"; // Mark game as over to block moves
+      if (mpControlsElement) mpControlsElement.hidden = true;
       showGameBanner(`Game cancelled: ${reason}`, "warn");
     };
 
@@ -1608,13 +1657,47 @@ async function initMultiplayerMode(id: string): Promise<void> {
       },
     });
 
-    if (result.state.phase === "drafting" && (color === "w" || color === "b")) {
-      resetScenePiecesFromSnapshot(currentState);
-      render();
-      showDraft(color, () => {}, {
+    const waitingOverlay = document.getElementById("waiting-overlay");
+    const waitingLink = document.getElementById("waiting-link");
+    const waitingCopyBtn = document.getElementById("waiting-copy-btn");
+
+    function showWaitingOverlay() {
+      if (waitingOverlay) {
+        waitingOverlay.hidden = false;
+        if (waitingLink) waitingLink.textContent = window.location.href;
+        waitingCopyBtn?.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(window.location.href);
+            waitingCopyBtn.textContent = "Copied!";
+            setTimeout(() => { waitingCopyBtn.textContent = "Copy"; }, 1500);
+          } catch { /* ignore */ }
+        });
+      }
+    }
+
+    function hideWaitingOverlay() {
+      if (waitingOverlay) waitingOverlay.hidden = true;
+    }
+
+    function startDraftPhase() {
+      hideWaitingOverlay();
+      showDraft(color as "w" | "b", () => {}, {
         submitToServer: (placements) => mp.submitDraft(placements),
         draftTimeMs: result.state.draftTimeMs,
       });
+    }
+
+    if (result.state.phase === "drafting" && (color === "w" || color === "b")) {
+      resetScenePiecesFromSnapshot(currentState);
+      render();
+
+      const bothJoined = result.state.whiteJoined && result.state.blackJoined;
+      if (bothJoined) {
+        startDraftPhase();
+      } else {
+        showWaitingOverlay();
+        onOpponentJoinCallback = startDraftPhase;
+      }
     } else if (result.state.phase === "playing" && result.state.initialFen) {
       // Game already started (reconnect after draft)
       if (result.state.moves.length > 0) {
@@ -1642,32 +1725,23 @@ async function initMultiplayerMode(id: string): Promise<void> {
     }
 
     applyMultiplayerUiState();
-    onlineButton!.disabled = true;
   } catch {
     setSessionNote("Could not connect to game.", "warn");
   }
 }
 
-const onlineButton = document.querySelector<HTMLButtonElement>("#online-button");
-onlineButton?.addEventListener("click", async () => {
-  if (mp.isMultiplayer()) return;
+const onlineStatusElement = document.getElementById("online-button");
 
-  try {
-    const result = await mp.createGame(session.clockInitialMs);
-    window.history.pushState(null, "", `/game/${result.gameId}`);
-    await initMultiplayerMode(result.gameId);
-
-    const shareUrl = window.location.href;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setSessionNote(`Game created! Link copied to clipboard.`, "ready");
-    } catch {
-      setSessionNote(`Game created! Share: ${shareUrl}`, "ready");
-    }
-  } catch {
-    setSessionNote("Could not create online game.", "warn");
+function updateConnectionStatus() {
+  if (!onlineStatusElement) return;
+  if (mp.isMultiplayer()) {
+    onlineStatusElement.textContent = "Connected";
+    onlineStatusElement.className = "connection-status connected";
+  } else {
+    onlineStatusElement.textContent = "Offline";
+    onlineStatusElement.className = "connection-status disconnected";
   }
-});
+}
 
 // ---- Initialization ----
 
@@ -1681,6 +1755,7 @@ if (route) {
   render();
   openDraftThenStart();
 }
+updateConnectionStatus();
 handleViewportResize();
 window.addEventListener("resize", handleViewportResize);
 window.addEventListener("orientationchange", handleViewportResize);
