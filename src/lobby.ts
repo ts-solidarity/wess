@@ -157,6 +157,15 @@ function initNavigation() {
       }
     });
   });
+  // Footer nav links
+  document.querySelectorAll<HTMLAnchorElement>(".footer-nav-link").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const nav = link.dataset.footerNav;
+      if (nav === "about") navigate("/about");
+      else if (nav === "terms") navigate("/terms");
+    });
+  });
 }
 
 function initThemeToggle() {

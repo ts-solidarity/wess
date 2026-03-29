@@ -18,7 +18,7 @@ export default defineConfig({
       name: "spa-fallback",
       configureServer(server) {
         server.middlewares.use(((req, _res, next) => {
-          if (req.url?.startsWith("/game/") || req.url === "/play" || req.url === "/about") {
+          if (req.url?.startsWith("/game/") || req.url === "/play" || req.url === "/about" || req.url === "/terms") {
             req.url = "/index.html";
           }
           next();

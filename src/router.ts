@@ -1,6 +1,7 @@
 export type Route =
   | { type: "lobby" }
   | { type: "about" }
+  | { type: "terms" }
   | { type: "play" }
   | { type: "game"; id: string };
 
@@ -11,6 +12,10 @@ export function parseRoute(pathname: string): Route {
 
   if (pathname === "/about") {
     return { type: "about" };
+  }
+
+  if (pathname === "/terms") {
+    return { type: "terms" };
   }
 
   const gameMatch = pathname.match(/^\/game\/([a-f0-9]+)$/i);

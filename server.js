@@ -588,7 +588,7 @@ async function serveStaticFile(res, pathname) {
     res.end(content);
   } catch {
     // SPA fallback for /game/* routes
-    if (pathname.startsWith("/game/") || pathname === "/play" || pathname === "/about") {
+    if (pathname.startsWith("/game/") || pathname === "/play" || pathname === "/about" || pathname === "/terms") {
       try {
         const indexContent = await readFile(join(DIST_DIR, "index.html"));
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });

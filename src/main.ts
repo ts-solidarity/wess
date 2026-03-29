@@ -22,7 +22,7 @@ window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", ()
   }
 });
 
-const views = ["lobby", "about", "game"] as const;
+const views = ["lobby", "about", "terms", "game"] as const;
 
 function showView(name: typeof views[number]) {
   for (const v of views) {
@@ -36,6 +36,8 @@ startRouter(async (route) => {
     showView("lobby");
   } else if (route.type === "about") {
     showView("about");
+  } else if (route.type === "terms") {
+    showView("terms");
   } else {
     showView("game");
     if (!controllerLoaded) {
