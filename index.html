@@ -6,18 +6,358 @@
     <title>Wess</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <main class="experience-shell simple-shell">
-        <section class="board-stage">
-          <div class="clock-strip" aria-label="Game clocks">
-            <div id="white-clock" class="clock-face" data-color="w">
-              <span class="clock-label">White</span>
-              <strong class="clock-value">05:00</strong>
+
+    <!-- ============================================
+         SITE HEADER
+         ============================================ -->
+    <header class="site-header">
+      <div class="header-inner">
+        <a href="/" class="site-logo" aria-label="Wess home">
+          <svg class="logo-mark" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9"/>
+          </svg>
+          <span class="logo-text">wess</span>
+        </a>
+
+        <nav class="site-nav" aria-label="Main navigation">
+          <a href="#" class="nav-link active" data-nav="play">
+            <svg class="nav-icon" viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+              <path d="M6.5 3a1.5 1.5 0 0 1 1.5 1.5v.5h4v-.5a1.5 1.5 0 0 1 3 0V5a1 1 0 0 1-1 1h-1l1.5 5H15a1 1 0 0 1 .97 1.24l-1 4A1 1 0 0 1 14 17H6a1 1 0 0 1-.97-.76l-1-4A1 1 0 0 1 5 11h.5L7 6H6a1 1 0 0 1-1-1v-.5A1.5 1.5 0 0 1 6.5 3z"/>
+            </svg>
+            Play
+          </a>
+          <a href="#" class="nav-link" data-nav="about">About</a>
+        </nav>
+
+        <div class="header-right">
+          <button class="header-icon-btn" type="button" aria-label="Search">
+            <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="9" cy="9" r="6"/><line x1="14" y1="14" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <button class="header-icon-btn" type="button" aria-label="Notifications">
+            <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M10 2a5 5 0 0 0-5 5v3l-1.5 2.5a.5.5 0 0 0 .43.75h12.14a.5.5 0 0 0 .43-.75L15 10V7a5 5 0 0 0-5-5z"/>
+              <path d="M8 15.5a2 2 0 0 0 4 0"/>
+            </svg>
+          </button>
+          <button class="header-icon-btn theme-toggle-btn" id="theme-toggle" type="button" aria-label="Toggle theme">
+            <svg class="theme-icon-dark" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="10" cy="10" r="4"/><path d="M10 2v2m0 12v2M2 10h2m12 0h2m-3.2-5.8-1.4 1.4M6.6 13.4l-1.4 1.4m0-9.6 1.4 1.4m7.2 7.2 1.4 1.4"/>
+            </svg>
+            <svg class="theme-icon-light" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M17.3 11.3A7 7 0 1 1 8.7 2.7a5.5 5.5 0 0 0 8.6 8.6z"/>
+            </svg>
+          </button>
+          <button class="sign-in-btn" type="button">Sign In</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ============================================
+         LOBBY PAGE
+         ============================================ -->
+    <main class="lobby-page" data-view="lobby">
+
+      <!-- Left Column: Play Options -->
+      <section class="lobby-play" aria-label="Play chess">
+
+        <div class="name-input-section">
+          <input type="text" id="player-name-input" class="name-input" placeholder="Your name" maxlength="20" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div class="quick-play-section">
+          <h2 class="section-heading">Quick Play</h2>
+          <div class="time-controls-grid">
+            <button class="tc-card" data-tc="bullet">
+              <span class="tc-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                </svg>
+              </span>
+              <span class="tc-label">Bullet</span>
+              <span class="tc-time">1+0</span>
+            </button>
+            <button class="tc-card" data-tc="blitz">
+              <span class="tc-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="9"/>
+                  <polyline points="12,7 12,12 15.5,14"/>
+                </svg>
+              </span>
+              <span class="tc-label">Blitz</span>
+              <span class="tc-time">3+2</span>
+            </button>
+            <button class="tc-card" data-tc="rapid">
+              <span class="tc-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                  <circle cx="12" cy="13" r="8"/>
+                  <path d="M12 9v4l2.5 1.5"/>
+                  <path d="M5 3L2 6"/>
+                  <path d="M19 3l3 3"/>
+                </svg>
+              </span>
+              <span class="tc-label">Rapid</span>
+              <span class="tc-time">10+0</span>
+            </button>
+            <button class="tc-card" data-tc="classical">
+              <span class="tc-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                  <rect x="3" y="4" width="18" height="16" rx="2"/>
+                  <path d="M12 8v4l2 2"/>
+                  <path d="M3 10h18"/>
+                </svg>
+              </span>
+              <span class="tc-label">Classical</span>
+              <span class="tc-time">30+0</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="create-game-section">
+          <h3 class="subsection-heading">Create a Game</h3>
+          <div class="create-game-form">
+            <div class="form-row">
+              <label class="form-label">Minutes</label>
+              <div class="range-input-wrap">
+                <input type="range" class="range-input" id="time-range" min="1" max="60" value="10" />
+                <output class="range-value" id="time-value">10</output>
+              </div>
             </div>
+            <div class="form-row">
+              <label class="form-label">Increment</label>
+              <div class="range-input-wrap">
+                <input type="range" class="range-input" id="increment-range" min="0" max="30" value="0" />
+                <output class="range-value" id="increment-value">0</output>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Play as</label>
+              <div class="color-picker">
+                <button class="color-btn active" data-color="random" type="button">
+                  <span class="color-half white"></span><span class="color-half black"></span>
+                </button>
+                <button class="color-btn" data-color="white" type="button">
+                  <span class="color-half white full"></span>
+                </button>
+                <button class="color-btn" data-color="black" type="button">
+                  <span class="color-half black full"></span>
+                </button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Draft time</label>
+              <div class="range-input-wrap">
+                <input type="range" class="range-input" id="draft-time-range" min="30" max="300" value="120" step="30" />
+                <output class="range-value" id="draft-time-value">2:00</output>
+              </div>
+            </div>
+            <button class="create-game-btn" type="button">Create Game</button>
+          </div>
+        </div>
+
+        <button class="playground-btn" type="button">Playground</button>
+      </section>
+
+      <!-- Center Column: Board Placeholder -->
+      <section class="lobby-center" aria-label="Featured game">
+        <div class="board-placeholder" id="board-placeholder">
+          <div class="placeholder-grid" aria-hidden="true"></div>
+          <div class="placeholder-overlay">
+            <div class="placeholder-cta">
+              <p class="placeholder-tagline">Your next move awaits</p>
+              <button class="play-now-btn" type="button">Play Now</button>
+            </div>
+          </div>
+        </div>
+        <div class="featured-bar">
+          <span class="featured-dot"></span>
+          <span class="featured-label">Featured Game</span>
+          <span class="featured-players">Magnus C. vs Hikaru N.</span>
+        </div>
+      </section>
+
+      <!-- Right Column: Activity & Community -->
+      <aside class="lobby-aside" aria-label="Community activity">
+        <div class="online-widget">
+          <div class="online-count">
+            <span class="pulse-dot"></span>
+            <strong>2,847</strong> players online
+          </div>
+          <div class="online-breakdown">
+            <span><strong>312</strong> games</span>
+            <span class="dot-sep"></span>
+            <span><strong>48</strong> tournaments</span>
+          </div>
+        </div>
+
+        <div class="activity-section">
+          <h3 class="subsection-heading">Recent Games</h3>
+          <ul class="activity-feed">
+            <li class="activity-item win">
+              <span class="activity-result">1-0</span>
+              <div class="activity-detail">
+                <span class="activity-players">You vs. GuestKnight</span>
+                <span class="activity-meta">Blitz 3+2 &middot; 2m ago</span>
+              </div>
+            </li>
+            <li class="activity-item loss">
+              <span class="activity-result">0-1</span>
+              <div class="activity-detail">
+                <span class="activity-players">TacticMaster vs. You</span>
+                <span class="activity-meta">Rapid 10+0 &middot; 18m ago</span>
+              </div>
+            </li>
+            <li class="activity-item draw">
+              <span class="activity-result">&frac12;-&frac12;</span>
+              <div class="activity-detail">
+                <span class="activity-players">You vs. Pawn_Storm</span>
+                <span class="activity-meta">Bullet 1+0 &middot; 1h ago</span>
+              </div>
+            </li>
+            <li class="activity-item win">
+              <span class="activity-result">1-0</span>
+              <div class="activity-detail">
+                <span class="activity-players">You vs. Bishop42</span>
+                <span class="activity-meta">Blitz 5+0 &middot; 3h ago</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="tournaments-section">
+          <h3 class="subsection-heading">Tournaments</h3>
+          <ul class="tournament-list">
+            <li class="tournament-item">
+              <div class="tournament-info">
+                <span class="tournament-name">Weekly Blitz Arena</span>
+                <span class="tournament-meta">Starts in 24 min &middot; 89 players</span>
+              </div>
+              <button class="join-btn" type="button">Join</button>
+            </li>
+            <li class="tournament-item">
+              <div class="tournament-info">
+                <span class="tournament-name">Rapid Shield</span>
+                <span class="tournament-meta">In progress &middot; 214 players</span>
+              </div>
+              <button class="join-btn" type="button">Watch</button>
+            </li>
+            <li class="tournament-item">
+              <div class="tournament-info">
+                <span class="tournament-name">Bullet Brawl</span>
+                <span class="tournament-meta">Tomorrow 18:00 &middot; 42 players</span>
+              </div>
+              <button class="join-btn" type="button">Join</button>
+            </li>
+          </ul>
+        </div>
+
+        <div class="leaderboard-peek">
+          <h3 class="subsection-heading">Top Players</h3>
+          <ol class="leaderboard-list">
+            <li><span class="lb-rank">1</span><span class="lb-name">DrNykterstein</span><span class="lb-rating">2847</span></li>
+            <li><span class="lb-rank">2</span><span class="lb-name">penguingm1</span><span class="lb-rating">2812</span></li>
+            <li><span class="lb-rank">3</span><span class="lb-name">FireTheKing</span><span class="lb-rating">2790</span></li>
+          </ol>
+        </div>
+      </aside>
+    </main>
+
+    <!-- ============================================
+         ABOUT PAGE
+         ============================================ -->
+    <main class="about-page" data-view="about" hidden>
+      <article class="about-content">
+        <h1 class="about-title">Wess</h1>
+        <p class="about-subtitle">Chess, reimagined.</p>
+
+        <section class="about-section">
+          <h2>What is Wess?</h2>
+          <p>Wess is a free, open-source chess platform with a twist: you don't just play chess &mdash; you build your army first. Before each game, both players draft their starting pieces from a roster of 12 unique piece types within a 42-point budget. The classic army costs 39 points, leaving room to swap in fairy pieces for a strategic edge.</p>
+        </section>
+
+        <section class="about-section">
+          <h2>The Pieces</h2>
+          <div class="about-pieces-grid">
+            <div class="about-piece"><strong>Pawn</strong> <span class="about-cost">1pt</span><br>The classic foot soldier. Moves forward, captures diagonally.</div>
+            <div class="about-piece"><strong>Sentinel</strong> <span class="about-cost">2pt</span><br>Moves one square orthogonally, captures one square diagonally. A cheap defensive utility.</div>
+            <div class="about-piece"><strong>Knight</strong> <span class="about-cost">3pt</span><br>The L-shaped leaper. Jumps over pieces.</div>
+            <div class="about-piece"><strong>Bishop</strong> <span class="about-cost">3pt</span><br>Slides diagonally any distance.</div>
+            <div class="about-piece"><strong>Warden</strong> <span class="about-cost">3pt</span><br>Leaps exactly 2 squares in any direction, jumping over pieces.</div>
+            <div class="about-piece"><strong>Lancer</strong> <span class="about-cost">4pt</span><br>Slides up to 3 squares forward or forward-diagonal. Retreats 1 square.</div>
+            <div class="about-piece"><strong>Rook</strong> <span class="about-cost">5pt</span><br>Slides orthogonally any distance. Participates in castling.</div>
+            <div class="about-piece"><strong>Vanguard</strong> <span class="about-cost">6pt</span><br>Slides diagonally like a bishop, plus moves (not captures) up to 2 squares orthogonally.</div>
+            <div class="about-piece"><strong>Archbishop</strong> <span class="about-cost">7pt</span><br>Combines bishop and knight movement.</div>
+            <div class="about-piece"><strong>Chancellor</strong> <span class="about-cost">8pt</span><br>Combines rook and knight movement.</div>
+            <div class="about-piece"><strong>Queen</strong> <span class="about-cost">9pt</span><br>Slides in all directions. The most powerful standard piece.</div>
+            <div class="about-piece"><strong>King</strong> <span class="about-cost">free</span><br>Moves one square in any direction. Mandatory &mdash; protect it at all costs.</div>
+          </div>
+        </section>
+
+        <section class="about-section">
+          <h2>How It Works</h2>
+          <ol class="about-steps">
+            <li><strong>Create or join a game</strong> &mdash; choose your time control and draft timer.</li>
+            <li><strong>Draft your army</strong> &mdash; place pieces on your first 3 rows within the 42-point budget. At least 4 pawns and exactly 1 king required.</li>
+            <li><strong>Play</strong> &mdash; both armies are revealed simultaneously. First moves are free (15-second grace period), then clocks start.</li>
+          </ol>
+        </section>
+
+        <section class="about-section">
+          <h2>Technical Details</h2>
+          <p>Wess is built with TypeScript and Vite with zero runtime dependencies. The chess engine, move generation, and all UI rendering are custom-built from scratch. Multiplayer uses Server-Sent Events over a vanilla Node.js server.</p>
+          <p>The piece system is fully extensible &mdash; adding a new piece requires only a movement definition and an SVG. The engine handles FEN, SAN notation, check/checkmate detection, and all special rules automatically.</p>
+        </section>
+      </article>
+    </main>
+
+    <!-- ============================================
+         GAME VIEW
+         ============================================ -->
+    <main class="game-page" data-view="game" hidden>
+
+      <!-- Draft overlay -->
+      <div id="draft-overlay" class="draft-overlay" hidden>
+        <div class="draft-layout">
+
+          <div class="draft-palette">
+            <h2 class="draft-heading">Build Your Army</h2>
+            <div id="draft-piece-list" class="draft-piece-list"></div>
+          </div>
+
+          <div class="draft-board-area">
+            <div class="draft-budget-bar">
+              <span class="draft-budget-label">Points</span>
+              <div class="draft-budget-track">
+                <div id="draft-budget-fill" class="draft-budget-fill"></div>
+              </div>
+              <strong id="draft-budget-text" class="draft-budget-text">0 / 42</strong>
+              <span id="draft-timer" class="draft-timer" hidden></span>
+            </div>
+            <div id="draft-board" class="draft-board"></div>
+            <div id="draft-errors" class="draft-errors"></div>
+            <div id="draft-piece-info" class="draft-piece-info" hidden></div>
+          </div>
+
+          <div class="draft-actions">
+            <button id="draft-classic-btn" class="game-ctrl-btn" type="button">Classic Army</button>
+            <button id="draft-clear-btn" class="game-ctrl-btn" type="button">Clear</button>
+            <button id="draft-ready-btn" class="game-ctrl-btn accent" type="button" disabled>Ready</button>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="game-layout">
+
+        <!-- Board column: player bars + board -->
+        <div class="game-board-col">
+          <div class="player-bar player-bar-top">
+            <span class="player-name" id="opponent-name">Opponent</span>
             <div id="black-clock" class="clock-face" data-color="b">
               <span class="clock-label">Black</span>
               <strong class="clock-value">05:00</strong>
@@ -28,7 +368,6 @@
             <div class="board-wrap">
               <div id="board" class="board" aria-label="Chess board"></div>
             </div>
-
             <div class="sr-only" aria-live="polite">
               <span id="status-text">White to move.</span>
               <span id="turn-badge">White</span>
@@ -37,171 +376,144 @@
               <span id="orientation-badge">White</span>
             </div>
           </section>
-        </section>
 
-        <button
-          id="utility-backdrop"
-          class="utility-backdrop"
-          type="button"
-          aria-label="Close utility drawer"
-          tabindex="-1"
-        ></button>
+          <div class="player-bar player-bar-bottom">
+            <span class="player-name" id="player-name">You</span>
+            <div id="white-clock" class="clock-face" data-color="w">
+              <span class="clock-label">White</span>
+              <strong class="clock-value">05:00</strong>
+            </div>
+          </div>
+        </div>
 
-        <aside class="side-panel side-dock">
-          <div id="utility-drawer" class="utility-drawer">
-            <section
-              id="session-card"
-              class="card utility-panel drawer-panel"
-              role="tabpanel"
-              aria-labelledby="utility-tab-game"
-              data-utility-panel="game"
-              hidden
-            >
-              <div class="drawer-actions drawer-actions-pair">
-                <button id="reset-button" class="primary-button" type="button">New</button>
-                <button id="flip-button" class="secondary-button" type="button">Flip</button>
-              </div>
+        <!-- Info panel: moves, controls, tabs -->
+        <aside class="game-info-panel">
+          <div class="game-info-inner">
 
-              <span id="timeline-badge" class="status-chip timeline-chip">
+            <div id="game-banner" class="game-banner" hidden></div>
+            <button id="rematch-btn" class="game-ctrl-btn accent rematch-btn" type="button" hidden>Rematch</button>
+
+            <div class="game-controls-bar">
+              <button id="reset-button" class="game-ctrl-btn" type="button" title="New Game">New</button>
+              <button id="flip-button" class="game-ctrl-btn" type="button" title="Flip Board">Flip</button>
+              <button id="online-button" class="game-ctrl-btn accent" type="button" title="Play Online">Online</button>
+            </div>
+            <div class="game-controls-bar mp-controls" id="mp-controls" hidden>
+              <button id="resign-button" class="game-ctrl-btn danger" type="button">Resign</button>
+              <button id="draw-button" class="game-ctrl-btn" type="button">Draw</button>
+              <button id="add-time-button" class="game-ctrl-btn" type="button">+15s</button>
+            </div>
+
+            <div class="game-moves-panel">
+              <div id="history-list" class="history-list" aria-live="polite"></div>
+            </div>
+
+            <div class="game-timeline-bar">
+              <button id="jump-start-button" class="timeline-btn" type="button" title="Start">&laquo;</button>
+              <button id="undo-button" class="timeline-btn" type="button" title="Undo">&lsaquo;</button>
+              <span id="timeline-badge" class="timeline-badge">
                 <span id="timeline-mode">Live</span>
                 <strong id="timeline-text">0 / 0</strong>
               </span>
+              <button id="redo-button" class="timeline-btn" type="button" title="Redo">&rsaquo;</button>
+              <button id="jump-end-button" class="timeline-btn" type="button" title="End">&raquo;</button>
+            </div>
 
-              <div class="segmented-row triple" role="group" aria-label="Clock preset">
+            <div class="game-extra-controls">
+              <div class="game-controls-row">
+                <button id="replay-button" class="game-ctrl-btn small" type="button">Replay</button>
+                <button id="live-button" class="game-ctrl-btn small" type="button">Live</button>
+                <button class="game-ctrl-btn small" id="board-size-fit" type="button">Fit</button>
+              </div>
+              <div class="segmented-row" role="group" aria-label="Clock preset">
                 <button class="setting-button" type="button" data-clock-preset="180000">3m</button>
                 <button class="setting-button" type="button" data-clock-preset="300000">5m</button>
                 <button class="setting-button" type="button" data-clock-preset="600000">10m</button>
               </div>
-
-              <div class="timeline-grid primary-controls">
-                <button id="jump-start-button" class="secondary-button" type="button">Start</button>
-                <button id="undo-button" class="secondary-button" type="button">Undo</button>
-                <button id="redo-button" class="secondary-button" type="button">Redo</button>
-                <button id="jump-end-button" class="secondary-button" type="button">End</button>
+              <div class="board-size-control">
+                <label class="form-label" for="board-size-range">Size</label>
+                <div class="range-input-wrap">
+                  <input type="range" class="range-input" id="board-size-range" min="400" max="920" step="40" value="680" />
+                  <output class="range-value" id="board-size-value">680</output>
+                </div>
               </div>
+            </div>
 
-              <div class="timeline-grid live-controls">
-                <button id="replay-button" class="secondary-button" type="button">Replay</button>
-                <button id="live-button" class="secondary-button" type="button">Live</button>
-              </div>
+            <!-- Utility tabs -->
+            <div
+              id="utility-tablist"
+              class="utility-tablist"
+              role="tablist"
+              aria-label="Panels"
+            >
+              <button id="utility-tab-game" class="utility-tab" type="button" role="tab" aria-expanded="false" aria-selected="false" aria-controls="session-card" data-utility-tab="game">Game</button>
+              <button id="utility-tab-moves" class="utility-tab" type="button" role="tab" aria-expanded="false" aria-selected="false" aria-controls="utility-panel-moves" data-utility-tab="moves">Moves</button>
+              <button id="utility-tab-pgn" class="utility-tab" type="button" role="tab" aria-expanded="false" aria-selected="false" aria-controls="utility-panel-pgn" data-utility-tab="pgn">PGN</button>
+              <button id="utility-tab-fen" class="utility-tab" type="button" role="tab" aria-expanded="false" aria-selected="false" aria-controls="utility-panel-fen" data-utility-tab="fen">FEN</button>
+            </div>
 
-              <div class="timeline-grid session-tools-grid">
-                <button id="save-session-button" class="secondary-button" type="button">Save</button>
-                <button id="restore-session-button" class="secondary-button" type="button">Restore</button>
-              </div>
+            <button id="utility-backdrop" class="utility-backdrop" type="button" aria-label="Close utility drawer" tabindex="-1"></button>
 
-              <button id="clear-session-button" class="secondary-button wide-button" type="button">Clear</button>
-              <p id="session-note" class="panel-note" hidden></p>
-            </section>
+            <div id="utility-drawer" class="utility-drawer">
+              <section id="session-card" class="utility-panel" role="tabpanel" aria-labelledby="utility-tab-game" data-utility-panel="game" hidden>
+                <div class="panel-controls">
+                  <button id="save-session-button" class="game-ctrl-btn small" type="button">Save</button>
+                  <button id="restore-session-button" class="game-ctrl-btn small" type="button">Restore</button>
+                  <button id="clear-session-button" class="game-ctrl-btn small" type="button">Clear</button>
+                </div>
+                <p id="session-note" class="panel-note" hidden></p>
+              </section>
 
-            <section
-              id="utility-panel-moves"
-              class="card utility-panel drawer-panel"
-              role="tabpanel"
-              aria-labelledby="utility-tab-moves"
-              data-utility-panel="moves"
-              hidden
-            >
-              <div id="history-list" class="history-list" aria-live="polite"></div>
-            </section>
+              <section id="utility-panel-moves" class="utility-panel" role="tabpanel" aria-labelledby="utility-tab-moves" data-utility-panel="moves" hidden>
+              </section>
 
-            <section
-              id="utility-panel-pgn"
-              class="card utility-panel drawer-panel"
-              role="tabpanel"
-              aria-labelledby="utility-tab-pgn"
-              data-utility-panel="pgn"
-              hidden
-            >
-              <div class="drawer-actions drawer-actions-triple">
-                <button id="export-pgn-button" class="secondary-button" type="button">Export</button>
-                <button id="copy-pgn-button" class="secondary-button" type="button">Copy</button>
-                <button id="import-pgn-button" class="primary-button" type="button">Import</button>
-              </div>
-              <textarea id="pgn-textarea" class="pgn-block" spellcheck="false" placeholder="PGN"></textarea>
-              <p id="pgn-status" class="panel-note" hidden></p>
-            </section>
+              <section id="utility-panel-pgn" class="utility-panel" role="tabpanel" aria-labelledby="utility-tab-pgn" data-utility-panel="pgn" hidden>
+                <div class="panel-controls">
+                  <button id="export-pgn-button" class="game-ctrl-btn small" type="button">Export</button>
+                  <button id="copy-pgn-button" class="game-ctrl-btn small" type="button">Copy</button>
+                  <button id="import-pgn-button" class="game-ctrl-btn small accent" type="button">Import</button>
+                </div>
+                <textarea id="pgn-textarea" class="pgn-block" spellcheck="false" placeholder="Paste PGN here..."></textarea>
+                <p id="pgn-status" class="panel-note" hidden></p>
+              </section>
 
-            <section
-              id="utility-panel-fen"
-              class="card utility-panel drawer-panel"
-              role="tabpanel"
-              aria-labelledby="utility-tab-fen"
-              data-utility-panel="fen"
-              hidden
-            >
-              <button id="copy-fen-button" class="secondary-button" type="button">Copy</button>
-              <code id="fen-text" class="fen-block"></code>
-            </section>
-          </div>
+              <section id="utility-panel-fen" class="utility-panel" role="tabpanel" aria-labelledby="utility-tab-fen" data-utility-panel="fen" hidden>
+                <button id="copy-fen-button" class="game-ctrl-btn small" type="button">Copy FEN</button>
+                <code id="fen-text" class="fen-block"></code>
+              </section>
+            </div>
 
-          <div
-            id="utility-tablist"
-            class="utility-tablist side-tablist"
-            role="tablist"
-            aria-label="Panels"
-          >
-            <button
-              id="utility-tab-game"
-              class="utility-tab side-tab"
-              type="button"
-              role="tab"
-              aria-expanded="false"
-              aria-selected="false"
-              aria-controls="session-card"
-              data-utility-tab="game"
-            >
-              Game
-            </button>
-            <button
-              id="utility-tab-moves"
-              class="utility-tab side-tab"
-              type="button"
-              role="tab"
-              aria-expanded="false"
-              aria-selected="false"
-              aria-controls="utility-panel-moves"
-              data-utility-tab="moves"
-            >
-              Moves
-            </button>
-            <button
-              id="utility-tab-pgn"
-              class="utility-tab side-tab"
-              type="button"
-              role="tab"
-              aria-expanded="false"
-              aria-selected="false"
-              aria-controls="utility-panel-pgn"
-              data-utility-tab="pgn"
-            >
-              PGN
-            </button>
-            <button
-              id="utility-tab-fen"
-              class="utility-tab side-tab"
-              type="button"
-              role="tab"
-              aria-expanded="false"
-              aria-selected="false"
-              aria-controls="utility-panel-fen"
-              data-utility-tab="fen"
-            >
-              FEN
-            </button>
           </div>
         </aside>
-      </main>
-    </div>
 
+      </div>
+    </main>
+
+    <!-- Promotion dialog (shared, outside both views) -->
     <dialog id="promotion-dialog" class="promotion-dialog">
       <div class="dialog-body">
         <p class="panel-label">Promotion</p>
         <h2 id="promotion-title">Choose a piece</h2>
         <div id="promotion-options" class="promotion-options"></div>
-        <button id="promotion-cancel" class="secondary-button wide-button" type="button">Cancel</button>
+        <button id="promotion-cancel" class="game-ctrl-btn wide" type="button">Cancel</button>
       </div>
     </dialog>
+
+    <!-- ============================================
+         FOOTER
+         ============================================ -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-links">
+          <a href="#">About</a>
+          <a href="#">Blog</a>
+          <a href="#">API</a>
+          <a href="#">Source Code</a>
+          <a href="#">Terms</a>
+        </div>
+        <p class="footer-copy">Wess is free, open-source chess.</p>
+      </div>
+    </footer>
 
     <script type="module" src="./src/main.ts"></script>
   </body>

@@ -1,5 +1,9 @@
 import { ChessGame } from "../domain/chess-game";
 import type { PieceColor, PieceType, Move, PublicSnapshot } from "../domain/chess-game";
+import { getPromotionTargets } from "../domain/piece-movement";
+import { showDraft, hideDraft, getCurrentPlacements } from "./draft-controller";
+import { draftsToFen } from "../domain/draft";
+import type { DraftPlacement } from "../domain/draft";
 import {
   PIECE_NAMES,
   SESSION_STORAGE_KEY,
@@ -42,6 +46,7 @@ import { createBoardInput } from "../ui/board-input";
 import { createBoardScene } from "../ui/board-scene";
 import type { SquareLayout, ElementLayout } from "../ui/board-scene";
 import { renderPieceSvg } from "../ui/piece-set";
+import * as mp from "./multiplayer";
 
 const reducedMotionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
 
@@ -324,6 +329,7 @@ function getSessionResultText() {
 }
 
 function persistSession(options: { silent?: boolean } = {}) {
+  if (mp.isMultiplayer()) return;
   try {
     const currentClock = getDisplayedClockSnapshot();
     const storedSnapshots = session.clockSnapshots.map((snapshot, index) => (
@@ -473,7 +479,23 @@ function handleClockExpiration(snapshot: ClockSnapshot) {
   setSessionNote(`Time. ${colorName(session.timeoutWinner)} wins.`, "warn");
 }
 
+const gameBoardCol = document.querySelector<HTMLElement>(".game-board-col");
+const gameBanner = document.getElementById("game-banner");
+
+function showGameBanner(text: string, style: "info" | "result" | "warn" = "info") {
+  if (!gameBanner) return;
+  gameBanner.textContent = text;
+  gameBanner.className = `game-banner ${style}`;
+  gameBanner.hidden = false;
+}
+
+function hideGameBanner() {
+  if (gameBanner) gameBanner.hidden = true;
+}
+
 function renderClockState() {
+  if (gameBoardCol) gameBoardCol.dataset.orientation = orientation;
+
   const snapshot = getDisplayedClockSnapshot();
   const activeColor = (
     !isReplayActive()
@@ -771,6 +793,30 @@ function renderStatus(state: PublicSnapshot) {
     document.body.dataset.tone = tone;
   }
 
+  // Update banner based on game state (skip if game already ended via resign/draw/timeout)
+  if (state.result.over && state.result.reason && !session.timeoutWinner) {
+    const reason = state.result.reason;
+    if (reason === "checkmate") {
+      showGameBanner(`Checkmate! ${colorName(state.result.winner!)} wins.`, "result");
+    } else if (reason === "stalemate") {
+      showGameBanner("Stalemate — draw.", "result");
+    } else if (reason === "insufficient material" || reason === "threefold repetition" || reason === "fifty-move rule") {
+      showGameBanner(`Draw by ${reason}.`, "result");
+    }
+    if (mpControlsElement) mpControlsElement.hidden = true;
+    showRematchButton();
+  } else if (!state.result.over && !session.timeoutWinner && mp.isMultiplayer()) {
+    const lastMove = state.moveHistory.length > 0 ? state.moveHistory[state.moveHistory.length - 1] : null;
+    if (state.check && lastMove) {
+      showGameBanner(`${lastMove.notation} — ${colorName(state.turn)} is in check!`, "warn");
+    } else if (lastMove && session.moves.length >= 2) {
+      const mover = lastMove.color === "w" ? "White" : "Black";
+      showGameBanner(`${mover}: ${lastMove.notation}`, "info");
+    } else if (session.moves.length >= 2) {
+      hideGameBanner();
+    }
+  }
+
   if (boardPanelElement instanceof HTMLElement) {
     boardPanelElement.dataset.tone = tone;
   }
@@ -811,14 +857,14 @@ function showPromotionDialog(move: Move) {
   promotionTitleElement.textContent = `${colorName(move.color)} promotes on ${move.to}`;
   promotionOptionsElement.innerHTML = "";
 
-  for (const type of ["q", "r", "b", "n"] as PieceType[]) {
+  for (const type of getPromotionTargets()) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "promotion-button";
     button.dataset.piece = type;
     button.innerHTML = `
       ${renderPieceSvg({ color: move.color, type }, "piece-svg promotion-piece")}
-      <span class="promotion-label">${colorName(move.color)} ${PIECE_NAMES[type]}</span>
+      <span class="promotion-label">${colorName(move.color)} ${PIECE_NAMES[type] ?? type}</span>
     `;
     button.addEventListener("click", () => {
       closePromotionDialog();
@@ -838,6 +884,10 @@ function showPromotionDialog(move: Move) {
 
 async function commitMove(from: string, to: string, promotion?: string, options: { dragStartLayout?: ElementLayout | null; effectStartLayout?: SquareLayout | null } = {}) {
   if (session.timeoutWinner || isReplayActive()) {
+    return null;
+  }
+
+  if (mp.isMultiplayer() && (mp.isSpectator() || !mp.isMyTurn(currentState.turn))) {
     return null;
   }
 
@@ -870,10 +920,15 @@ async function commitMove(from: string, to: string, promotion?: string, options:
   });
   session.currentPly = session.moves.length;
   session.clockSnapshots[session.currentPly - 1] = currentClock;
+
+  // During multiplayer grace period (first 2 moves), clocks don't tick
+  const inGracePeriod = mp.isMultiplayer() && session.moves.length < 2;
+  const increment = !inGracePeriod && mp.isMultiplayer() ? mp.getIncrementMs() : 0;
+  const moverColor = afterState.turn === "w" ? "b" : "w"; // the player who just moved
   session.clockSnapshots[session.currentPly] = {
-    whiteMs: currentClock.whiteMs,
-    blackMs: currentClock.blackMs,
-    activeColor: afterState.result.over ? null : afterState.turn,
+    whiteMs: currentClock.whiteMs + (moverColor === "w" ? increment : 0),
+    blackMs: currentClock.blackMs + (moverColor === "b" ? increment : 0),
+    activeColor: afterState.result.over || inGracePeriod ? null : afterState.turn,
   };
   session.liveClockStartedAt = Date.now();
   await queueSceneAnimation(() => animateSceneMove(record, afterState, {
@@ -882,14 +937,23 @@ async function commitMove(from: string, to: string, promotion?: string, options:
   }));
   historyListElement.scrollTop = historyListElement.scrollHeight;
   persistSession({ silent: true });
+
+  if (mp.isMultiplayer() && !mp.isSpectator()) {
+    mp.sendMove({ from, to, promotion: record.promotion }).catch(() => {
+      setSessionNote("Move could not be sent to server.", "warn");
+    });
+  }
+
   return record;
 }
 
 function getPieceMoves(square: string) {
+  if (mp.isMultiplayer() && !mp.isMyTurn(currentState.turn)) return [];
   return game.getLegalMoves(square);
 }
 
 function canStartDragFromSquare(square: string) {
+  if (mp.isMultiplayer() && !mp.isMyTurn(currentState.turn)) return false;
   return getPieceMoves(square).length > 0;
 }
 
@@ -948,9 +1012,17 @@ function updateBoardViewportSize() {
   const coordinateGutter = Math.round(Number.parseFloat(
     window.getComputedStyle(boardWrapElement).getPropertyValue("--board-coordinate-gutter"),
   ) || 0);
-  const availableWidth = Math.max(Math.floor(boardPanelElement.clientWidth - coordinateGutter), 0);
-  const availableHeight = Math.max(Math.floor(boardPanelElement.clientHeight - coordinateGutter), 0);
-  const boardSize = Math.max(Math.floor(Math.min(1040, availableWidth, availableHeight)), 0);
+  const borderWidth = Math.round(Number.parseFloat(
+    window.getComputedStyle(boardWrapElement).getPropertyValue("--board-border-width"),
+  ) || 0);
+  const availableWidth = Math.max(Math.floor(boardPanelElement.clientWidth - coordinateGutter - 2 * borderWidth), 0);
+  settings = loadSettings(SETTINGS_STORAGE_KEY);
+  const headerH = Math.round(Number.parseFloat(
+    window.getComputedStyle(document.documentElement).getPropertyValue("--header-h"),
+  ) || 52);
+  const fitHeight = Math.max(Math.floor(window.innerHeight - headerH - 88 - 32 - coordinateGutter - 2 * borderWidth), 0);
+  const maxSize = settings.boardMaxSize > 0 ? settings.boardMaxSize : Math.min(availableWidth, fitHeight);
+  const boardSize = Math.max(Math.floor(Math.min(maxSize, availableWidth)), 0);
 
   if (boardSize <= 0) {
     return;
@@ -1237,24 +1309,46 @@ flipButton.addEventListener("click", () => {
   persistSession({ silent: true });
 });
 
-resetButton.addEventListener("click", () => {
-  if (isAnimationActive() || isReplayActive()) {
-    return;
-  }
-
+function startGameFromFen(fen: string) {
   pendingPromotionMove = null;
   closePromotionDialog();
   clearSelection();
   resetDragState();
   clearFxEffects();
-  game.reset();
+  hideGameBanner();
+  game.loadFen(fen);
   currentState = game.snapshot();
-  session = createEmptySession(START_FEN, session.clockInitialMs);
+  session = createEmptySession(fen, session.clockInitialMs);
   orientation = "w";
   resetScenePiecesFromSnapshot(currentState);
   render();
+  queueBoardResize();
   persistSession({ silent: true });
-  setSessionNote("New game started.", "ready");
+}
+
+function openPlayground() {
+  let whitePlacements: DraftPlacement[] = [];
+
+  showDraft("w", () => {
+    whitePlacements = getCurrentPlacements();
+    showDraft("b", () => {
+      const blackPlacements = getCurrentPlacements();
+      const fen = draftsToFen(whitePlacements, blackPlacements);
+      startGameFromFen(fen);
+      setSessionNote("Playground — no clocks, control both sides.", "ready");
+    });
+  });
+}
+
+function openDraftThenStart() {
+  openPlayground();
+}
+
+resetButton.addEventListener("click", () => {
+  if (isAnimationActive() || isReplayActive()) {
+    return;
+  }
+  openDraftThenStart();
 });
 
 copyFenButton.addEventListener("click", async () => {
@@ -1287,10 +1381,305 @@ if (boardPanelElement) {
   layoutObserver?.observe(boardPanelElement);
 }
 setUtilityTab(activeUtilityTab);
-if (!restorePersistedSession({ silent: true })) {
+
+// ---- Multiplayer ----
+
+const mpControlsElement = document.getElementById("mp-controls");
+const resignButton = document.getElementById("resign-button");
+const drawButton = document.getElementById("draw-button");
+const addTimeButton = document.getElementById("add-time-button");
+
+function applyMultiplayerUiState(): void {
+  if (!mp.isMultiplayer()) return;
+  resetButton!.disabled = true;
+  saveSessionButton!.disabled = true;
+  restoreSessionButton!.disabled = true;
+  clearSessionButton!.disabled = true;
+  importPgnButton!.disabled = true;
+  undoButton!.disabled = true;
+  const clockPresetButtons = document.querySelectorAll<HTMLButtonElement>("[data-clock-preset]");
+  clockPresetButtons.forEach((btn) => { btn.disabled = true; });
+
+  if (mpControlsElement && !mp.isSpectator()) {
+    mpControlsElement.hidden = false;
+  }
+
+  if (mp.isSpectator()) {
+    showGameBanner("Spectating", "info");
+  }
+}
+
+resignButton?.addEventListener("click", async () => {
+  if (!mp.isMultiplayer() || mp.isSpectator()) return;
+  const ok = await mp.resign();
+  if (!ok) setSessionNote("Failed to resign.", "warn");
+});
+
+drawButton?.addEventListener("click", async () => {
+  if (!mp.isMultiplayer() || mp.isSpectator()) return;
+  const ok = await mp.offerDraw();
+  if (ok && drawButton) {
+    drawButton.textContent = "Draw offered";
+    (drawButton as HTMLButtonElement).disabled = true;
+  }
+});
+
+addTimeButton?.addEventListener("click", async () => {
+  if (!mp.isMultiplayer() || mp.isSpectator()) return;
+  const ok = await mp.addTimeToOpponent();
+  if (ok) setSessionNote("Added 15s to opponent's clock.", "ready");
+});
+
+const rematchBtn = document.getElementById("rematch-btn") as HTMLButtonElement | null;
+
+function showRematchButton() {
+  if (rematchBtn && mp.isMultiplayer() && !mp.isSpectator()) {
+    rematchBtn.hidden = false;
+    rematchBtn.textContent = "Rematch";
+    rematchBtn.disabled = false;
+  }
+}
+
+rematchBtn?.addEventListener("click", async () => {
+  if (!mp.isMultiplayer() || mp.isSpectator()) return;
+  rematchBtn.textContent = "Waiting...";
+  rematchBtn.disabled = true;
+  await mp.offerRematch();
+});
+
+function handleRemoteMove(move: TimelineMove, clock: ClockSnapshot): void {
+  const expectedPly = session.moves.length + 1;
+
+  // If this move is already applied locally (our own echo), just sync the clock
+  if (session.moves.length > 0) {
+    const lastMove = session.moves[session.moves.length - 1];
+    if (lastMove.from === move.from && lastMove.to === move.to && session.currentPly === expectedPly - 1) {
+      // Ignore echo but sync clock from server
+      return;
+    }
+  }
+
+  // Sync clock from server for our own move (ply already applied)
+  if (session.currentPly >= expectedPly) {
+    session.clockSnapshots[session.currentPly] = clock;
+    session.liveClockStartedAt = Date.now();
+    return;
+  }
+
+  const record = game.makeMove(move.from, move.to, move.promotion);
+  if (!record) return;
+
+  clearSelection();
+  const afterState = game.snapshot();
+  currentState = afterState;
+
+  session.moves.push({ from: move.from, to: move.to, promotion: record.promotion });
+  session.currentPly = session.moves.length;
+  session.clockSnapshots[session.currentPly] = clock;
+  session.liveClockStartedAt = Date.now();
+
+  queueSceneAnimation(() => animateSceneMove(record, afterState, {}));
+  applyMultiplayerUiState();
+}
+
+const playerNameElement = document.getElementById("player-name");
+const opponentNameElement = document.getElementById("opponent-name");
+
+function setPlayerNames(names: { w: string | null; b: string | null }) {
+  const myColor = mp.getPlayerColor();
+  if (mp.isSpectator()) {
+    if (playerNameElement) playerNameElement.textContent = names.w || "White";
+    if (opponentNameElement) opponentNameElement.textContent = names.b || "Black";
+  } else if (myColor === "w") {
+    if (playerNameElement) playerNameElement.textContent = names.w || "You";
+    if (opponentNameElement) opponentNameElement.textContent = names.b || "Waiting...";
+  } else {
+    if (playerNameElement) playerNameElement.textContent = names.b || "You";
+    if (opponentNameElement) opponentNameElement.textContent = names.w || "Opponent";
+  }
+}
+
+function handleRemoteJoin(name?: string): void {
+  const myColor = mp.getPlayerColor();
+  if (name && opponentNameElement && !mp.isSpectator()) {
+    opponentNameElement.textContent = name;
+  }
+  showGameBanner("Opponent has joined!", "info");
+}
+
+function handleRemoteTimeout(winner: PieceColor, clock: ClockSnapshot): void {
+  session.timeoutWinner = winner;
+  session.clockSnapshots[session.currentPly] = clock;
+  session.liveClockStartedAt = Date.now();
+  clearSelection();
+  resetDragState();
+  if (mpControlsElement) mpControlsElement.hidden = true;
+  render();
+  showGameBanner(`Time's up! ${colorName(winner)} wins.`, "result");
+  showRematchButton();
+}
+
+function startGameFromServerFen(fen: string, clockInitialMs: number, clockSnapshots?: any[]) {
+  game.loadFen(fen);
+  currentState = game.snapshot();
+  session = createEmptySession(fen, clockInitialMs);
+  if (clockSnapshots) {
+    session.clockSnapshots = clockSnapshots;
+  }
+  session.liveClockStartedAt = Date.now();
   resetScenePiecesFromSnapshot(currentState);
   render();
-  setSessionNote("");
+  queueBoardResize();
+}
+
+async function initMultiplayerMode(id: string): Promise<void> {
+  try {
+    const savedName = localStorage.getItem("wess-player-name") || "Player";
+    const result = await mp.joinGame(id, savedName);
+    const color = result.color;
+
+    if (result.state.playerNames) {
+      setPlayerNames(result.state.playerNames);
+    }
+
+    if (color === "w" || color === "b") {
+      orientation = color;
+    } else {
+      orientation = "w";
+    }
+
+    const handleDraftComplete = (fen: string) => {
+      hideDraft();
+      startGameFromServerFen(fen, result.state.clockInitialMs, result.state.clockSnapshots);
+      showGameBanner("Game started! Make your first move.", "info");
+    };
+
+    const handleGameCancelled = (reason: string) => {
+      hideDraft();
+      showGameBanner(`Game cancelled: ${reason}`, "warn");
+    };
+
+    mp.connectEvents(id, {
+      onMove: handleRemoteMove,
+      onJoin: handleRemoteJoin,
+      onTimeout: handleRemoteTimeout,
+      onSync: () => {},
+      onDraftComplete: handleDraftComplete,
+      onGameCancelled: handleGameCancelled,
+      onResign: (loser, winner) => {
+        session.timeoutWinner = winner;
+        if (mpControlsElement) mpControlsElement.hidden = true;
+        showGameBanner(`${colorName(loser)} resigned. ${colorName(winner)} wins!`, "result");
+        showRematchButton();
+        renderSessionState();
+      },
+      onDrawOffer: (from) => {
+        if (from !== mp.getPlayerColor() && drawButton) {
+          drawButton.textContent = "Accept Draw";
+          (drawButton as HTMLButtonElement).disabled = false;
+          showGameBanner(`${colorName(from)} offers a draw.`, "info");
+        }
+      },
+      onDrawAccepted: () => {
+        session.timeoutWinner = "w";
+        if (mpControlsElement) mpControlsElement.hidden = true;
+        showGameBanner("Game drawn by agreement.", "result");
+        showRematchButton();
+        renderSessionState();
+      },
+      onAddTime: (from, to, addedMs, clock) => {
+        const idx = session.clockSnapshots.length - 1;
+        if (idx >= 0) {
+          session.clockSnapshots[idx] = { ...clock };
+        }
+        const secs = Math.round(addedMs / 1000);
+        showGameBanner(`${colorName(from)} added ${secs}s to ${colorName(to)}'s clock.`, "info");
+        renderClockState();
+      },
+      onRematchOffer: (from) => {
+        if (from !== mp.getPlayerColor() && rematchBtn) {
+          rematchBtn.hidden = false;
+          rematchBtn.textContent = "Accept Rematch";
+          rematchBtn.disabled = false;
+        }
+      },
+      onRematchAccepted: (newGameId) => {
+        window.location.href = `/game/${newGameId}`;
+      },
+    });
+
+    if (result.state.phase === "drafting" && (color === "w" || color === "b")) {
+      resetScenePiecesFromSnapshot(currentState);
+      render();
+      showDraft(color, () => {}, {
+        submitToServer: (placements) => mp.submitDraft(placements),
+        draftTimeMs: result.state.draftTimeMs,
+      });
+    } else if (result.state.phase === "playing" && result.state.initialFen) {
+      // Game already started (reconnect after draft)
+      if (result.state.moves.length > 0) {
+        applySessionData({
+          initialFen: result.state.initialFen,
+          moves: result.state.moves,
+          currentPly: result.state.moves.length,
+          clockInitialMs: result.state.clockInitialMs,
+          clockSnapshots: result.state.clockSnapshots,
+          orientation,
+          timeoutWinner: result.state.timeoutWinner,
+        }, {});
+      } else {
+        startGameFromServerFen(result.state.initialFen, result.state.clockInitialMs, result.state.clockSnapshots);
+      }
+    } else {
+      // Fallback: standard board
+      game.reset();
+      currentState = game.snapshot();
+      session = createEmptySession(null, result.state.clockInitialMs);
+      session.clockSnapshots = result.state.clockSnapshots;
+      session.liveClockStartedAt = Date.now();
+      resetScenePiecesFromSnapshot(currentState);
+      render();
+    }
+
+    applyMultiplayerUiState();
+    onlineButton!.disabled = true;
+  } catch {
+    setSessionNote("Could not connect to game.", "warn");
+  }
+}
+
+const onlineButton = document.querySelector<HTMLButtonElement>("#online-button");
+onlineButton?.addEventListener("click", async () => {
+  if (mp.isMultiplayer()) return;
+
+  try {
+    const result = await mp.createGame(session.clockInitialMs);
+    window.history.pushState(null, "", `/game/${result.gameId}`);
+    await initMultiplayerMode(result.gameId);
+
+    const shareUrl = window.location.href;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setSessionNote(`Game created! Link copied to clipboard.`, "ready");
+    } catch {
+      setSessionNote(`Game created! Share: ${shareUrl}`, "ready");
+    }
+  } catch {
+    setSessionNote("Could not create online game.", "warn");
+  }
+});
+
+// ---- Initialization ----
+
+const route = mp.detectMultiplayerRoute();
+if (route) {
+  resetScenePiecesFromSnapshot(currentState);
+  render();
+  initMultiplayerMode(route.gameId);
+} else if (!restorePersistedSession({ silent: true })) {
+  resetScenePiecesFromSnapshot(currentState);
+  render();
+  openDraftThenStart();
 }
 handleViewportResize();
 window.addEventListener("resize", handleViewportResize);

@@ -4,9 +4,9 @@ import { ChessGame } from "../../src/domain/chess-game";
 
 const CLASSIC_START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-test("initial position exposes 20 legal moves", () => {
+test("initial position exposes 29 legal moves (20 standard + 9 archbishop)", () => {
   const game = new ChessGame();
-  expect(game.getAllLegalMoves().length).toBe(20);
+  expect(game.getAllLegalMoves().length).toBe(29);
 });
 
 test("fool's mate ends in checkmate for black", () => {

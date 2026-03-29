@@ -1,5 +1,18 @@
-export type PieceColor = "w" | "b";
-export type PieceType = "p" | "n" | "b" | "r" | "q" | "k";
+import {
+  type PieceColor,
+  PIECE_DEFINITIONS,
+  STANDARD_CASTLING,
+  BACK_RANK,
+  FRONT_ROW,
+  getDefinition,
+  isValidFenChar,
+  getPieceByFenChar,
+  getPromotionTargets,
+  getPawnType,
+} from "./piece-movement";
+export type { PieceColor } from "./piece-movement";
+
+export type PieceType = string;
 export type CastleSide = "k" | "q";
 
 export interface Piece {
@@ -85,8 +98,7 @@ export interface PublicSnapshot {
 }
 
 const FILES: string[] = ["a", "b", "c", "d", "e", "f", "g", "h"];
-const BACK_RANK: PieceType[] = ["r", "n", "b", "q", "k", "b", "n", "r"];
-const PROMOTION_PIECES = new Set<string>(["q", "r", "b", "n"]);
+const PROMOTION_PIECES = new Set<string>(getPromotionTargets());
 
 function createPiece(type: PieceType, color: PieceColor): Piece {
   return { type, color };
@@ -149,7 +161,7 @@ export function squareToCoords(square: string): { row: number; col: number } | n
 }
 
 function pieceLetter(type: PieceType): string {
-  return type === "p" ? "" : type.toUpperCase();
+  return getDefinition(type).sanLetter;
 }
 
 function pieceToFenChar(piece: Piece | null): string {
@@ -157,26 +169,31 @@ function pieceToFenChar(piece: Piece | null): string {
     return "";
   }
 
-  return piece.color === "w" ? piece.type.toUpperCase() : piece.type;
+  const letter = getDefinition(piece.type).fenLetter;
+  return piece.color === "w" ? letter.toUpperCase() : letter;
 }
 
 function fenCharToPiece(char: string): Piece {
-  const color: PieceColor = char === char.toUpperCase() ? "w" : "b";
-  return createPiece(char.toLowerCase() as PieceType, color);
+  const result = getPieceByFenChar(char);
+  if (!result) {
+    throw new Error(`Invalid FEN piece character: ${char}`);
+  }
+  return createPiece(result.type, result.color);
 }
 
 function normalizePromotionChoice(choice: string | undefined): PieceType {
   const normalized = String(choice ?? "q").toLowerCase();
-  return PROMOTION_PIECES.has(normalized) ? normalized as PieceType : "q";
+  return PROMOTION_PIECES.has(normalized) ? normalized : "q";
 }
 
 function buildInitialBoard(): Board {
   const board = Array.from({ length: 8 }, () => Array(8).fill(null));
+  const pawnType = getPawnType();
 
   for (let col = 0; col < 8; col += 1) {
     board[0][col] = createPiece(BACK_RANK[col], "b");
-    board[1][col] = createPiece("p", "b");
-    board[6][col] = createPiece("p", "w");
+    board[1][col] = createPiece(FRONT_ROW[col] ?? pawnType, "b");
+    board[6][col] = createPiece(FRONT_ROW[col] ?? pawnType, "w");
     board[7][col] = createPiece(BACK_RANK[col], "w");
   }
 
@@ -249,7 +266,7 @@ function buildRepetitionEnPassantSquare(state: GameState): string {
     }
 
     const piece = state.board[pawnRow][col];
-    if (piece?.type === "p" && piece.color === state.turn) {
+    if (piece && getDefinition(piece.type).enPassant && piece.color === state.turn) {
       return coordsToSquare(state.enPassant.row, state.enPassant.col);
     }
   }
@@ -342,7 +359,7 @@ function parseFen(fen: string): GameState {
         continue;
       }
 
-      if (!/[prnbqkPRNBQK]/.test(char)) {
+      if (!isValidFenChar(char)) {
         throw new Error(`Invalid FEN piece: ${char}`);
       }
 
@@ -362,7 +379,7 @@ function parseFen(fen: string): GameState {
   const kings = { w: 0, b: 0 };
   for (const row of state.board) {
     for (const piece of row) {
-      if (piece?.type === "k") kings[piece.color] += 1;
+      if (piece && getDefinition(piece.type).royal) kings[piece.color] += 1;
     }
   }
   if (kings.w !== 1 || kings.b !== 1) {
@@ -464,13 +481,54 @@ function findKing(state: GameState | SimulationState, color: PieceColor): { row:
   for (let row = 0; row < 8; row += 1) {
     for (let col = 0; col < 8; col += 1) {
       const piece = state.board[row][col];
-      if (piece?.type === "k" && piece.color === color) {
+      if (piece && getDefinition(piece.type).royal && piece.color === color) {
         return { row, col };
       }
     }
   }
 
   return null;
+}
+
+function canPieceAttackSquare(
+  board: Board,
+  piece: Piece,
+  pieceRow: number,
+  pieceCol: number,
+  targetRow: number,
+  targetCol: number,
+): boolean {
+  const definition = PIECE_DEFINITIONS[piece.type];
+
+  for (const moveRule of definition.rules) {
+    if (moveRule.mode === "move") continue;
+
+    const dirMultiplier = moveRule.relative ? pawnDirection(piece.color) : 1;
+
+    for (const [dr, dc] of moveRule.directions) {
+      const resolvedDr = dr * dirMultiplier;
+
+      for (let step = 1; step <= moveRule.range; step += 1) {
+        const r = pieceRow + resolvedDr * step;
+        const c = pieceCol + dc * step;
+        if (!isInBounds(r, c)) break;
+
+        if (r === targetRow && c === targetCol) {
+          if (moveRule.sliding || step === moveRule.range) return true;
+          break;
+        }
+
+        if (moveRule.leap) {
+          if (step < moveRule.range) continue;
+          break;
+        }
+
+        if (board[r][c]) break;
+      }
+    }
+  }
+
+  return false;
 }
 
 function isSquareAttacked(state: GameState | SimulationState, targetRow: number, targetCol: number, attackerColor: PieceColor): boolean {
@@ -481,84 +539,8 @@ function isSquareAttacked(state: GameState | SimulationState, targetRow: number,
         continue;
       }
 
-      switch (piece.type) {
-        case "p": {
-          const attackRow = row + pawnDirection(piece.color);
-          if (
-            attackRow === targetRow &&
-            (col - 1 === targetCol || col + 1 === targetCol)
-          ) {
-            return true;
-          }
-          break;
-        }
-        case "n": {
-          const offsets = [
-            [-2, -1],
-            [-2, 1],
-            [-1, -2],
-            [-1, 2],
-            [1, -2],
-            [1, 2],
-            [2, -1],
-            [2, 1],
-          ];
-
-          if (offsets.some(([dr, dc]) => row + dr === targetRow && col + dc === targetCol)) {
-            return true;
-          }
-          break;
-        }
-        case "b":
-        case "r":
-        case "q": {
-          const directions = [];
-
-          if (piece.type === "b" || piece.type === "q") {
-            directions.push(
-              [-1, -1],
-              [-1, 1],
-              [1, -1],
-              [1, 1],
-            );
-          }
-
-          if (piece.type === "r" || piece.type === "q") {
-            directions.push(
-              [-1, 0],
-              [1, 0],
-              [0, -1],
-              [0, 1],
-            );
-          }
-
-          for (const [dr, dc] of directions) {
-            let scanRow = row + dr;
-            let scanCol = col + dc;
-
-            while (isInBounds(scanRow, scanCol)) {
-              if (scanRow === targetRow && scanCol === targetCol) {
-                return true;
-              }
-
-              if (state.board[scanRow][scanCol]) {
-                break;
-              }
-
-              scanRow += dr;
-              scanCol += dc;
-            }
-          }
-          break;
-        }
-        case "k": {
-          if (Math.max(Math.abs(row - targetRow), Math.abs(col - targetCol)) === 1) {
-            return true;
-          }
-          break;
-        }
-        default:
-          break;
+      if (canPieceAttackSquare(state.board, piece, row, col, targetRow, targetCol)) {
+        return true;
       }
     }
   }
@@ -602,212 +584,111 @@ function generatePseudoMovesForPiece(state: GameState, row: number, col: number)
     return [];
   }
 
-  const moves = [];
+  const definition = PIECE_DEFINITIONS[piece.type];
+  const moves: Move[] = [];
+  const forward = pawnDirection(piece.color);
+  const promotionRank = definition.promotionRanks?.[piece.color] ?? -1;
 
-  switch (piece.type) {
-    case "p": {
-      const direction = pawnDirection(piece.color);
-      const startRow = piece.color === "w" ? 6 : 1;
-      const promotionRow = piece.color === "w" ? 0 : 7;
-      const nextRow = row + direction;
-
-      if (isInBounds(nextRow, col) && !state.board[nextRow][col]) {
-        moves.push(
-          createMove(state, row, col, nextRow, col, {
-            promotionRequired: nextRow === promotionRow,
-          }),
-        );
-
-        const doubleRow = row + (2 * direction);
-        if (
-          row === startRow &&
-          isInBounds(doubleRow, col) &&
-          !state.board[doubleRow][col]
-        ) {
-          moves.push(
-            createMove(state, row, col, doubleRow, col, {
-              isDoublePawnPush: true,
-            }),
-          );
-        }
-      }
-
-      for (const targetCol of [col - 1, col + 1]) {
-        if (!isInBounds(nextRow, targetCol)) {
-          continue;
-        }
-
-        const targetPiece = state.board[nextRow][targetCol];
-        if (targetPiece && targetPiece.color !== piece.color) {
-          moves.push(
-            createMove(state, row, col, nextRow, targetCol, {
-              promotionRequired: nextRow === promotionRow,
-            }),
-          );
-          continue;
-        }
-
-        if (
-          state.enPassant &&
-          state.enPassant.row === nextRow &&
-          state.enPassant.col === targetCol
-        ) {
-          const capturedPawn = state.board[state.enPassant.pawnRow]?.[state.enPassant.pawnCol];
-          if (capturedPawn?.type === "p" && capturedPawn.color !== piece.color) {
-            moves.push(
-              createMove(state, row, col, nextRow, targetCol, {
-                isEnPassant: true,
-                capturedRow: state.enPassant.pawnRow,
-                capturedCol: state.enPassant.pawnCol,
-              }),
-            );
-          }
-        }
-      }
-
-      break;
+  for (const moveRule of definition.rules) {
+    if (moveRule.initial) {
+      const initialRank = definition.initialRanks?.[piece.color];
+      if (initialRank == null || row !== initialRank) continue;
     }
-    case "n": {
-      const offsets = [
-        [-2, -1],
-        [-2, 1],
-        [-1, -2],
-        [-1, 2],
-        [1, -2],
-        [1, 2],
-        [2, -1],
-        [2, 1],
-      ];
 
-      for (const [dr, dc] of offsets) {
-        const targetRow = row + dr;
-        const targetCol = col + dc;
-        if (!isInBounds(targetRow, targetCol)) {
-          continue;
-        }
+    const dirMultiplier = moveRule.relative ? forward : 1;
 
-        const targetPiece = state.board[targetRow][targetCol];
-        if (!targetPiece || targetPiece.color !== piece.color) {
-          moves.push(createMove(state, row, col, targetRow, targetCol));
-        }
-      }
-      break;
-    }
-    case "b":
-    case "r":
-    case "q": {
-      const directions = [];
+    for (const [dr, dc] of moveRule.directions) {
+      const resolvedDr = dr * dirMultiplier;
 
-      if (piece.type === "b" || piece.type === "q") {
-        directions.push(
-          [-1, -1],
-          [-1, 1],
-          [1, -1],
-          [1, 1],
-        );
-      }
+      for (let step = 1; step <= moveRule.range; step += 1) {
+        const toRow = row + resolvedDr * step;
+        const toCol = col + dc * step;
+        if (!isInBounds(toRow, toCol)) break;
 
-      if (piece.type === "r" || piece.type === "q") {
-        directions.push(
-          [-1, 0],
-          [1, 0],
-          [0, -1],
-          [0, 1],
-        );
-      }
+        const target = state.board[toRow][toCol];
 
-      for (const [dr, dc] of directions) {
-        let targetRow = row + dr;
-        let targetCol = col + dc;
-
-        while (isInBounds(targetRow, targetCol)) {
-          const targetPiece = state.board[targetRow][targetCol];
-          if (!targetPiece) {
-            moves.push(createMove(state, row, col, targetRow, targetCol));
-          } else {
-            if (targetPiece.color !== piece.color) {
-              moves.push(createMove(state, row, col, targetRow, targetCol));
-            }
+        if (target) {
+          if (!moveRule.leap && step < moveRule.range && !moveRule.sliding) {
             break;
           }
 
-          targetRow += dr;
-          targetCol += dc;
+          if (target.color !== piece.color && moveRule.mode !== "move") {
+            if (moveRule.sliding || step === moveRule.range) {
+              moves.push(createMove(state, row, col, toRow, toCol, {
+                promotionRequired: toRow === promotionRank,
+              }));
+            }
+          }
+
+          if (!moveRule.leap) break;
+        } else {
+          if (moveRule.mode !== "capture" && (moveRule.sliding || step === moveRule.range)) {
+            moves.push(createMove(state, row, col, toRow, toCol, {
+              promotionRequired: toRow === promotionRank,
+              isDoublePawnPush: moveRule.initial && Math.abs(toRow - row) === 2,
+            }));
+          }
         }
       }
-      break;
     }
-    case "k": {
-      for (let dr = -1; dr <= 1; dr += 1) {
-        for (let dc = -1; dc <= 1; dc += 1) {
-          if (dr === 0 && dc === 0) {
-            continue;
-          }
+  }
 
-          const targetRow = row + dr;
-          const targetCol = col + dc;
-          if (!isInBounds(targetRow, targetCol)) {
-            continue;
-          }
-
-          const targetPiece = state.board[targetRow][targetCol];
-          if (!targetPiece || targetPiece.color !== piece.color) {
-            moves.push(createMove(state, row, col, targetRow, targetCol));
-          }
+  if (definition.enPassant && state.enPassant) {
+    const nextRow = row + forward;
+    for (const targetCol of [col - 1, col + 1]) {
+      if (!isInBounds(nextRow, targetCol)) continue;
+      if (state.enPassant.row === nextRow && state.enPassant.col === targetCol) {
+        const capturedPawn = state.board[state.enPassant.pawnRow]?.[state.enPassant.pawnCol];
+        if (capturedPawn && getDefinition(capturedPawn.type).enPassant && capturedPawn.color !== piece.color) {
+          moves.push(createMove(state, row, col, nextRow, targetCol, {
+            isEnPassant: true,
+            capturedRow: state.enPassant.pawnRow,
+            capturedCol: state.enPassant.pawnCol,
+          }));
         }
       }
+    }
+  }
 
-      const opponent = oppositeColor(piece.color);
-      const isHomeSquare = row === homeRank(piece.color) && col === 4;
-      if (!isHomeSquare || isSquareAttacked(state, row, col, opponent)) {
-        break;
-      }
-
+  if (definition.castles) {
+    const opponent = oppositeColor(piece.color);
+    const castling = STANDARD_CASTLING;
+    const isHomeSquare = row === homeRank(piece.color) && col === castling.kingHomeCol;
+    if (isHomeSquare && !isSquareAttacked(state, row, col, opponent)) {
       const rights = state.castling[piece.color];
 
       if (rights.k) {
-        const rook = state.board[row][7];
+        const ks = castling.kingSide;
+        const rook = state.board[row][ks.rookFromCol];
         if (
-          rook?.type === "r" &&
+          rook &&
           rook.color === piece.color &&
-          !state.board[row][5] &&
-          !state.board[row][6] &&
-          !isSquareAttacked(state, row, 5, opponent) &&
-          !isSquareAttacked(state, row, 6, opponent)
+          ks.clearCols.every((c) => !state.board[row][c]) &&
+          ks.safeCols.every((c) => !isSquareAttacked(state, row, c, opponent))
         ) {
-          moves.push(
-            createMove(state, row, col, row, 6, {
-              isCastling: true,
-              castleSide: "k",
-            }),
-          );
+          moves.push(createMove(state, row, col, row, ks.kingToCol, {
+            isCastling: true,
+            castleSide: "k",
+          }));
         }
       }
 
       if (rights.q) {
-        const rook = state.board[row][0];
+        const qs = castling.queenSide;
+        const rook = state.board[row][qs.rookFromCol];
         if (
-          rook?.type === "r" &&
+          rook &&
           rook.color === piece.color &&
-          !state.board[row][1] &&
-          !state.board[row][2] &&
-          !state.board[row][3] &&
-          !isSquareAttacked(state, row, 3, opponent) &&
-          !isSquareAttacked(state, row, 2, opponent)
+          qs.clearCols.every((c) => !state.board[row][c]) &&
+          qs.safeCols.every((c) => !isSquareAttacked(state, row, c, opponent))
         ) {
-          moves.push(
-            createMove(state, row, col, row, 2, {
-              isCastling: true,
-              castleSide: "q",
-            }),
-          );
+          moves.push(createMove(state, row, col, row, qs.kingToCol, {
+            isCastling: true,
+            castleSide: "q",
+          }));
         }
       }
-
-      break;
     }
-    default:
-      break;
   }
 
   return moves;
@@ -826,15 +707,11 @@ function applyMoveToState(state: GameState | SimulationState, move: Move): void 
   }
 
   if (move.isCastling) {
-    if (move.castleSide === "k") {
-      const rook = state.board[move.fromRow][7];
-      state.board[move.fromRow][7] = null;
-      state.board[move.fromRow][5] = clonePiece(rook);
-    } else {
-      const rook = state.board[move.fromRow][0];
-      state.board[move.fromRow][0] = null;
-      state.board[move.fromRow][3] = clonePiece(rook);
-    }
+    const castling = STANDARD_CASTLING;
+    const side = move.castleSide === "k" ? castling.kingSide : castling.queenSide;
+    const rook = state.board[move.fromRow][side.rookFromCol];
+    state.board[move.fromRow][side.rookFromCol] = null;
+    state.board[move.fromRow][side.rookToCol] = clonePiece(rook);
   }
 
   const promotionType = move.promotionRequired
@@ -843,34 +720,38 @@ function applyMoveToState(state: GameState | SimulationState, move: Move): void 
 
   state.board[move.toRow][move.toCol] = createPiece(promotionType, piece.color);
 
-  if (piece.type === "k") {
+  const pieceDef = getDefinition(piece.type);
+
+  if (pieceDef.royal) {
     state.castling[piece.color].k = false;
     state.castling[piece.color].q = false;
   }
 
-  if (piece.type === "r") {
+  {
+    const castling = STANDARD_CASTLING;
     const rookHomeRow = homeRank(piece.color);
-    if (move.fromRow === rookHomeRow && move.fromCol === 0) {
+    if (move.fromRow === rookHomeRow && move.fromCol === castling.queenSide.rookFromCol) {
       state.castling[piece.color].q = false;
     }
-    if (move.fromRow === rookHomeRow && move.fromCol === 7) {
+    if (move.fromRow === rookHomeRow && move.fromCol === castling.kingSide.rookFromCol) {
       state.castling[piece.color].k = false;
     }
   }
 
-  if (targetPiece?.type === "r") {
+  if (targetPiece) {
+    const castling = STANDARD_CASTLING;
     const rookHomeRow = homeRank(targetPiece.color);
     const captureRow = move.isEnPassant ? move.capturedRow : move.toRow;
     const captureCol = move.isEnPassant ? move.capturedCol : move.toCol;
-    if (captureRow === rookHomeRow && captureCol === 0) {
+    if (captureRow === rookHomeRow && captureCol === castling.queenSide.rookFromCol) {
       state.castling[targetPiece.color].q = false;
     }
-    if (captureRow === rookHomeRow && captureCol === 7) {
+    if (captureRow === rookHomeRow && captureCol === castling.kingSide.rookFromCol) {
       state.castling[targetPiece.color].k = false;
     }
   }
 
-  if (piece.type === "p" && Math.abs(move.toRow - move.fromRow) === 2) {
+  if (pieceDef.enPassant && Math.abs(move.toRow - move.fromRow) === 2) {
     state.enPassant = {
       row: move.fromRow + pawnDirection(piece.color),
       col: move.fromCol,
@@ -882,7 +763,7 @@ function applyMoveToState(state: GameState | SimulationState, move: Move): void 
     state.enPassant = null;
   }
 
-  if (piece.type === "p" || move.capture) {
+  if (pieceDef.resetsHalfmoveClock || move.capture) {
     state.halfmoveClock = 0;
   } else {
     state.halfmoveClock += 1;
@@ -933,7 +814,7 @@ function isInsufficientMaterial(state: GameState): boolean {
   for (let row = 0; row < 8; row += 1) {
     for (let col = 0; col < 8; col += 1) {
       const piece = state.board[row][col];
-      if (!piece || piece.type === "k") {
+      if (!piece || getDefinition(piece.type).royal) {
         continue;
       }
 
@@ -948,7 +829,7 @@ function isInsufficientMaterial(state: GameState): boolean {
     return true;
   }
 
-  if (pieces.some((piece) => piece.type === "p" || piece.type === "r" || piece.type === "q")) {
+  if (pieces.some((piece) => getDefinition(piece.type).sufficientMaterial)) {
     return false;
   }
 
@@ -956,7 +837,7 @@ function isInsufficientMaterial(state: GameState): boolean {
     return true;
   }
 
-  if (pieces.every((piece) => piece.type === "b")) {
+  if (pieces.every((piece) => getDefinition(piece.type).sameColorInsufficient)) {
     return new Set(pieces.map((piece) => piece.squareColor)).size === 1;
   }
 
@@ -1020,10 +901,10 @@ function formatMove(previousState: GameState, move: Move, currentState: GameStat
   }
 
   const captureToken = move.capture ? "x" : "";
-  const promotionToken = move.promotion ? `=${move.promotion.toUpperCase()}` : "";
+  const promotionToken = move.promotion ? `=${getDefinition(move.promotion).sanLetter}` : "";
   const destination = move.to;
 
-  if (move.piece === "p") {
+  if (getDefinition(move.piece).sanLetter === "") {
     const pawnPrefix = move.capture ? `${move.from[0]}${captureToken}` : "";
     return `${pawnPrefix}${destination}${promotionToken}${suffix}`;
   }

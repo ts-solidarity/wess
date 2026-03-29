@@ -1,6 +1,7 @@
 import { CLOCK_PRESETS, DEFAULT_CLOCK_MS } from "../app/constants";
 import { ChessGame } from "./chess-game";
 import type { PieceColor, PublicSnapshot, Move } from "./chess-game";
+import { getPromotionTargets, getSanLetterMap, getDefinition, getPawnType } from "./piece-movement";
 
 export interface ClockSnapshot {
   whiteMs: number;
@@ -314,10 +315,13 @@ function parseSanParts(normalizedToken: string): SanParts | null {
 
   let token = normalizedToken;
   let promotion: string | undefined;
-  const promoMatch = token.match(/=([QRBN])/i);
+  const promoLetters = getPromotionTargets().map((t) => getDefinition(t).sanLetter).join("");
+  const promoRegex = new RegExp(`=([${promoLetters}])`, "i");
+  const promoMatch = token.match(promoRegex);
   if (promoMatch) {
-    promotion = promoMatch[1].toLowerCase();
-    token = token.replace(/=[QRBN]/i, "");
+    const promoSanLetter = promoMatch[1].toUpperCase();
+    promotion = getSanLetterMap().get(promoSanLetter) ?? promoMatch[1].toLowerCase();
+    token = token.replace(promoRegex, "");
   }
 
   const dest = token.slice(-2);
@@ -329,11 +333,12 @@ function parseSanParts(normalizedToken: string): SanParts | null {
   let pieceType: string;
   let disambiguation: string;
 
-  if (/^[NBRQK]/.test(cleanPrefix)) {
-    pieceType = cleanPrefix[0].toLowerCase();
+  const sanMap = getSanLetterMap();
+  if (cleanPrefix.length > 0 && sanMap.has(cleanPrefix[0])) {
+    pieceType = sanMap.get(cleanPrefix[0])!;
     disambiguation = cleanPrefix.slice(1);
   } else {
-    pieceType = "p";
+    pieceType = getPawnType();
     disambiguation = cleanPrefix;
   }
 

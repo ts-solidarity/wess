@@ -22,6 +22,7 @@ import {
 } from "../app/constants";
 import { detectKnightKingQueenFork } from "../domain/tactics";
 import type { PieceColor, PieceType, Board, Move, PublicSnapshot } from "../domain/chess-game";
+import { getDefinition, STANDARD_CASTLING } from "../domain/piece-movement";
 
 type RGB = [number, number, number];
 
@@ -79,6 +80,7 @@ interface PieceTravelOptions {
   duration?: number;
   delay?: number;
   scaleBoost?: number;
+  arc?: number;
   palette?: TrailPalette;
   fadeIn?: number;
   fadeOut?: number;
@@ -310,7 +312,7 @@ interface AnimateSceneMoveOptions {
 }
 
 interface KnightFork {
-  knightSquare: string;
+  forkingSquare: string;
   kingSquare: string;
   queenSquares: string[];
 }
@@ -486,6 +488,7 @@ export function createAnimationController({
     const dy = endLayout.top - startLayout.top;
     const tilt = Math.max(-5, Math.min(5, dx / 28));
     const scaleBoost = options.scaleBoost ?? 0.08;
+    const arcHeight = (options.arc ?? 0) * Math.max(Math.abs(dx), Math.abs(dy));
     const palette = options.palette ?? { glow: [255, 255, 255] as RGB, core: [255, 255, 255] as RGB };
     const fxProfile = getFxProfile();
 
@@ -499,7 +502,8 @@ export function createAnimationController({
         const settle = 1 - smoothStep(0.78, 1, progress);
         const shimmer = Math.sin(progress * Math.PI);
         const x = lerp(0, dx, eased);
-        const y = lerp(0, dy, eased);
+        const arcOffset = arcHeight * Math.sin(progress * Math.PI);
+        const y = lerp(0, dy, eased) - arcOffset;
         const scaleX = 1
           + (shimmer * scaleBoost * (0.58 + (envelope * 0.34)))
           + (launch * 0.038)
@@ -510,9 +514,11 @@ export function createAnimationController({
           + (settle * 0.01);
         const rotate = tilt * shimmer * (0.52 + (envelope * 0.3));
         const glowRadius = (12 + (22 * envelope)) * fxProfile.glowScale;
+        const elevation = shimmer * 8 * fxProfile.glowScale;
 
         element.style.transform = `translate3d(${x}px, ${y}px, 0px) scale(${scaleX}, ${scaleY}) rotate(${rotate}deg)`;
         element.style.filter = `
+          drop-shadow(0 ${4 + elevation}px ${8 + elevation * 2}px rgba(42, 31, 24, ${0.18 + shimmer * 0.12}))
           drop-shadow(0 0 ${glowRadius}px ${rgba(palette.glow, (0.14 + (envelope * 0.28)) * fxProfile.alphaScale)})
           drop-shadow(0 0 ${Math.max(8, glowRadius * 0.58)}px ${rgba(palette.core, (0.08 + (envelope * 0.16)) * fxProfile.alphaScale)})
         `;
@@ -542,8 +548,11 @@ export function createAnimationController({
         const rotate = 12 * eased;
         const opacity = 1 - eased;
         const glowRadius = (8 + (12 * envelope)) * fxProfile.glowScale;
+        const flinch = progress < 0.2
+          ? Math.sin(progress * 50) * 3 * (1 - progress / 0.2)
+          : 0;
 
-        element.style.transform = `scale(${scale}) rotate(${rotate}deg)`;
+        element.style.transform = `scale(${scale}) rotate(${rotate}deg) translateX(${flinch}px)`;
         element.style.opacity = String(opacity);
         element.style.filter = `
           drop-shadow(0 0 ${glowRadius}px ${rgba(palette.glow, (0.08 + (envelope * 0.2)) * fxProfile.alphaScale)})
@@ -1300,7 +1309,7 @@ export function createAnimationController({
     emitTrailEffect(startLayout, endLayout, palette, {
       startTime: now,
       travelDuration: duration,
-      lingerDuration: 128,
+      lingerDuration: 160,
       width: Math.max(startLayout.width, endLayout.width) * 0.18,
       fadeIn: 0.12,
     });
@@ -1481,6 +1490,9 @@ export function createAnimationController({
     });
 
     if (state.result.reason === "checkmate") {
+      boardElement.classList.add("checkmate-shake");
+      setTimeout(() => boardElement.classList.remove("checkmate-shake"), 400);
+
       emitPulseEffect(kingLayout, palette, {
         startTime: now + 180,
         duration: LANDING_PULSE_MS + 120,
@@ -1503,7 +1515,7 @@ export function createAnimationController({
   }
 
   function emitKnightForkEffects(record: Move, state: PublicSnapshot, fork: KnightFork): boolean {
-    const knightLayout = getSquareLayout(fork.knightSquare);
+    const knightLayout = getSquareLayout(fork.forkingSquare);
     const kingLayout = getSquareLayout(fork.kingSquare);
     const queenLayouts = fork.queenSquares
       .map((square: string) => ({
@@ -1618,7 +1630,6 @@ export function createAnimationController({
     if (prefersReducedMotion()) {
       applyMoveToScene(record, afterState);
       renderSnapshot(afterState);
-      emitResultEffects(record, afterState);
       return;
     }
 
@@ -1657,7 +1668,8 @@ export function createAnimationController({
       movingEndLayout,
       {
         duration: moveDuration,
-        scaleBoost: movingPiece.type === "n" ? 0.11 : 0.085,
+        scaleBoost: getDefinition(movingPiece.type).animationProfile === "leaper" ? 0.11 : 0.085,
+        arc: getDefinition(movingPiece.type).animationProfile === "leaper" ? 0.3 : 0.06,
         palette,
         fadeIn: 0.12,
         fadeOut: 0.18,
@@ -1683,9 +1695,11 @@ export function createAnimationController({
     }
 
     if (record.isCastling) {
-      const backRank = record.color === "w" ? "1" : "8";
-      const rookFrom = record.castleSide === "k" ? `h${backRank}` : `a${backRank}`;
-      const rookTo = record.castleSide === "k" ? `f${backRank}` : `d${backRank}`;
+      const castling = STANDARD_CASTLING;
+      const side = record.castleSide === "k" ? castling.kingSide : castling.queenSide;
+      const backRankRow = record.color === "w" ? 7 : 0;
+      const rookFrom = coordsToSquare(backRankRow, side.rookFromCol);
+      const rookTo = coordsToSquare(backRankRow, side.rookToCol);
       const rookId = scene.squareToPieceId.get(rookFrom);
       const rookElement = rookId ? scene.pieceElements.get(rookId) : null;
       const rookStartLayout = rookElement ? getElementLayout(rookElement) : null;
@@ -1729,7 +1743,8 @@ export function createAnimationController({
           rookStartLayout,
           rookEndLayout,
           {
-            duration: moveDuration - 40,
+            duration: moveDuration,
+            delay: 30,
             scaleBoost: 0.04,
             palette,
             fadeIn: 0.12,

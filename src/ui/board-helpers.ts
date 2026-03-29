@@ -1,6 +1,7 @@
 import { PIECE_NAMES } from "../app/constants";
 import { coordsToSquare, squareToCoords } from "../domain/chess-game";
 import type { PieceColor, PieceType, Piece, Board, PublicSnapshot } from "../domain/chess-game";
+import { getDefinition } from "../domain/piece-movement";
 export { coordsToSquare, squareToCoords };
 
 export function colorName(color: PieceColor): string {
@@ -11,7 +12,7 @@ export function findKingSquare(board: Board, color: PieceColor): string | null {
   for (let row = 0; row < 8; row += 1) {
     for (let col = 0; col < 8; col += 1) {
       const piece = board[row][col];
-      if (piece?.type === "k" && piece.color === color) {
+      if (piece && getDefinition(piece.type).royal && piece.color === color) {
         return coordsToSquare(row, col);
       }
     }
@@ -79,10 +80,10 @@ export function buildSquareAria(piece: Piece | null, square: string, state: Publ
   }
 
   const turnHint = piece.color === state.turn ? ", selectable" : "";
-  return `${colorName(piece.color)} ${PIECE_NAMES[piece.type]} on ${location}${turnHint}`;
+  return `${colorName(piece.color)} ${PIECE_NAMES[piece.type] ?? piece.type} on ${location}${turnHint}`;
 }
 
 export function pieceAriaLabel(piece: { color: PieceColor; type: PieceType; square: string }): string {
   const location = `${piece.square[0].toUpperCase()}${piece.square[1]}`;
-  return `${colorName(piece.color)} ${PIECE_NAMES[piece.type]} on ${location}`;
+  return `${colorName(piece.color)} ${PIECE_NAMES[piece.type] ?? piece.type} on ${location}`;
 }

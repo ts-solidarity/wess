@@ -1,6 +1,7 @@
 import { FILES } from "../app/constants";
 import type { FxProfile } from "../app/settings";
 import type { PieceColor, PieceType, Piece, Board, Move, PublicSnapshot } from "../domain/chess-game";
+import { STANDARD_CASTLING } from "../domain/piece-movement";
 
 export interface ScenePiece {
   id: string;
@@ -462,9 +463,11 @@ export function createBoardScene({
     }
 
     if (record.isCastling) {
-      const backRank = record.color === "w" ? "1" : "8";
-      const rookFrom = record.castleSide === "k" ? `h${backRank}` : `a${backRank}`;
-      const rookTo = record.castleSide === "k" ? `f${backRank}` : `d${backRank}`;
+      const castling = STANDARD_CASTLING;
+      const side = record.castleSide === "k" ? castling.kingSide : castling.queenSide;
+      const backRankRow = record.color === "w" ? 7 : 0;
+      const rookFrom = coordsToSquare(backRankRow, side.rookFromCol);
+      const rookTo = coordsToSquare(backRankRow, side.rookToCol);
       const rookId = scene.squareToPieceId.get(rookFrom);
 
       if (rookId) {

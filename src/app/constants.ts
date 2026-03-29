@@ -1,13 +1,10 @@
+import { PIECE_DEFINITIONS } from "../domain/piece-movement";
+
 export const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
-export const PIECE_NAMES = {
-  p: "pawn",
-  n: "knight",
-  b: "bishop",
-  r: "rook",
-  q: "queen",
-  k: "king",
-};
+export const PIECE_NAMES: Record<string, string> = Object.fromEntries(
+  Object.entries(PIECE_DEFINITIONS).map(([key, def]) => [key, def.displayName]),
+);
 
 export const DRAG_MOVE_THRESHOLD = 6;
 export const TOUCH_DRAG_HOLD_MS = 160;
@@ -34,7 +31,7 @@ export const FORK_TARGET_STAGGER_MS = 24;
 export const FORK_BEAM_MS = 360;
 export const FORK_FLASH_MS = 440;
 export const FORK_RETICLE_MS = 520;
-export const TRAIL_WINDOW = 0.24;
+export const TRAIL_WINDOW = 0.36;
 
 export const SETTINGS_STORAGE_KEY = "wess-settings-v1";
 export const SESSION_STORAGE_KEY = "wess-session-v2";
@@ -81,4 +78,10 @@ export const DEFAULT_SETTINGS = {
   soundEnabled: true,
   fxIntensity: "full",
   motionMode: "system",
+  boardMaxSize: 0,
+  theme: "system",
 };
+
+export const BOARD_SIZE_MIN = 400;
+export const BOARD_SIZE_MAX = 920;
+export const BOARD_SIZE_STEP = 40;

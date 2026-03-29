@@ -4,7 +4,10 @@
   "type": "module",
   "scripts": {
     "start": "vite --strictPort",
+    "server": "node server.js",
+    "dev": "node server.js & vite --strictPort",
     "build": "vite build",
+    "serve": "npm run build && node server.js",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "npm run test:unit && npm run test:browser",
     "test:unit": "vitest run",

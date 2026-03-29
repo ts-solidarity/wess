@@ -17,7 +17,7 @@ test("detects a knight fork that attacks the enemy king and queen", () => {
   const { record, state } = playMove(game, "b5", "c7");
 
   expect(detectKnightKingQueenFork(record, state)).toEqual({
-    knightSquare: "c7",
+    forkingSquare: "c7",
     kingSquare: "e8",
     queenSquares: ["d5"],
   });
@@ -42,7 +42,7 @@ test("returns all attacked queens in deterministic order", () => {
   const { record, state } = playMove(game, "b5", "c7");
 
   expect(detectKnightKingQueenFork(record, state)).toEqual({
-    knightSquare: "c7",
+    forkingSquare: "c7",
     kingSquare: "e8",
     queenSquares: ["a8", "d5"],
   });

@@ -59,6 +59,150 @@ export function createBoardInput({
 }: BoardInputConfig) {
   let suppressNextClick = false;
 
+  // --- Arrow drawing ---
+  let arrowSvg: SVGSVGElement | null = null;
+
+  function ensureArrowLayer(): SVGSVGElement {
+    if (arrowSvg) return arrowSvg;
+    arrowSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    arrowSvg.setAttribute("class", "board-layer arrow-layer");
+    arrowSvg.setAttribute("aria-hidden", "true");
+    arrowSvg.setAttribute("viewBox", "0 0 800 800");
+    arrowSvg.style.pointerEvents = "none";
+    arrowSvg.style.zIndex = "10";
+    // Position on top of the square layer, not the whole board
+    arrowSvg.style.position = "absolute";
+    arrowSvg.style.inset = "0";
+    arrowSvg.style.width = "100%";
+    arrowSvg.style.height = "100%";
+    arrowSvg.style.overflow = "visible";
+    // Append to square layer's parent so it aligns with squares
+    if (scene.squareLayer) {
+      scene.squareLayer.parentElement!.appendChild(arrowSvg);
+    } else {
+      boardElement.appendChild(arrowSvg);
+    }
+
+    return arrowSvg;
+  }
+
+  interface DrawnArrow {
+    from: string;
+    to: string;
+    element: SVGElement;
+  }
+
+  const drawnArrows: DrawnArrow[] = [];
+  let arrowDragFrom: string | null = null;
+  let arrowPreview: SVGElement | null = null;
+
+  function getSquareCenter(square: string): { x: number; y: number } | null {
+    const layout = getSquareLayout(square);
+    if (!layout) return null;
+    const squareLayerRect = scene.squareLayer?.getBoundingClientRect();
+    if (!squareLayerRect || squareLayerRect.width === 0) return null;
+    // Layout coords are pixels relative to the square layer
+    // Convert to viewBox units (0-800)
+    const x = ((layout.left + layout.width / 2) / squareLayerRect.width) * 800;
+    const y = ((layout.top + layout.height / 2) / squareLayerRect.height) * 800;
+    return { x, y };
+  }
+
+  function createArrowLine(x1: number, y1: number, x2: number, y2: number, isPreview: boolean): SVGGElement {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const opacity = isPreview ? "0.45" : "0.75";
+    g.setAttribute("opacity", opacity);
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+    const headLen = 38;
+    const headW = 34;
+    const shaftW = 16;
+    const shaftLen = Math.max(0, len - headLen * 0.7);
+
+    // Build arrow shape: shaft rectangle + triangular head
+    const halfShaft = shaftW / 2;
+    const halfHead = headW / 2;
+    const points = [
+      `0,${-halfShaft}`,
+      `${shaftLen},${-halfShaft}`,
+      `${shaftLen},${-halfHead}`,
+      `${shaftLen + headLen},0`,
+      `${shaftLen},${halfHead}`,
+      `${shaftLen},${halfShaft}`,
+      `0,${halfShaft}`,
+    ].join(" ");
+
+    const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    polygon.setAttribute("points", points);
+    polygon.setAttribute("fill", "rgba(0, 190, 190, 0.8)");
+    polygon.setAttribute("stroke", "rgba(0, 120, 130, 0.35)");
+    polygon.setAttribute("stroke-width", "2");
+    polygon.setAttribute("stroke-linejoin", "round");
+
+    g.setAttribute("transform", `translate(${x1},${y1}) rotate(${angle})`);
+    g.appendChild(polygon);
+    return g;
+  }
+
+  function createCircleHighlight(square: string): SVGCircleElement | null {
+    const center = getSquareCenter(square);
+    if (!center) return null;
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", String(center.x));
+    circle.setAttribute("cy", String(center.y));
+    circle.setAttribute("r", "35");
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("stroke", "rgba(0, 190, 190, 0.8)");
+    circle.setAttribute("stroke-width", "8");
+    return circle;
+  }
+
+  function clearArrows(): void {
+    const svg = arrowSvg;
+    if (!svg) return;
+    for (const arrow of drawnArrows) {
+      arrow.element.remove();
+    }
+    drawnArrows.length = 0;
+    svg.querySelectorAll("circle").forEach((c) => c.remove());
+  }
+
+  function toggleArrow(from: string, to: string): void {
+    const svg = ensureArrowLayer();
+    const existing = drawnArrows.findIndex((a) => a.from === from && a.to === to);
+    if (existing >= 0) {
+      drawnArrows[existing].element.remove();
+      drawnArrows.splice(existing, 1);
+      return;
+    }
+
+    const fromCenter = getSquareCenter(from);
+    const toCenter = getSquareCenter(to);
+    if (!fromCenter || !toCenter) return;
+
+    const line = createArrowLine(fromCenter.x, fromCenter.y, toCenter.x, toCenter.y, false);
+    svg.appendChild(line);
+    drawnArrows.push({ from, to, element: line });
+  }
+
+  function toggleCircle(square: string): void {
+    const svg = ensureArrowLayer();
+    const existing = svg.querySelector(`circle[data-square="${square}"]`);
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    const circle = createCircleHighlight(square);
+    if (circle) {
+      circle.setAttribute("data-square", square);
+      svg.appendChild(circle);
+    }
+  }
+
   function clearSelection(): void {
     setSelectedSquare(null);
     setLegalMoves([]);
@@ -192,6 +336,17 @@ export function createBoardInput({
   }
 
   function handleBoardPointerDown(event: PointerEvent): void {
+    // Right-click: start arrow drawing
+    if (event.button === 2) {
+      event.preventDefault();
+      const square = getSquareFromPointer(event.clientX, event.clientY);
+      if (square) {
+        arrowDragFrom = square;
+        if (arrowPreview) { arrowPreview.remove(); arrowPreview = null; }
+      }
+      return;
+    }
+
     const currentState = getCurrentState();
     if (
       getPendingPromotionMove()
@@ -246,6 +401,23 @@ export function createBoardInput({
   }
 
   function handleBoardPointerMove(event: PointerEvent): void {
+    // Arrow preview on right-drag
+    if (arrowDragFrom && (event.buttons & 2)) {
+      const toSquare = getSquareFromPointer(event.clientX, event.clientY);
+      if (!toSquare || toSquare === arrowDragFrom) {
+        if (arrowPreview) { arrowPreview.remove(); arrowPreview = null; }
+      } else {
+        const fromCenter = getSquareCenter(arrowDragFrom);
+        const toCenter = getSquareCenter(toSquare);
+        if (fromCenter && toCenter) {
+          if (arrowPreview) arrowPreview.remove();
+          arrowPreview = createArrowLine(fromCenter.x, fromCenter.y, toCenter.x, toCenter.y, true);
+          ensureArrowLayer().appendChild(arrowPreview);
+        }
+      }
+      return;
+    }
+
     if (!scene.drag || scene.drag.pointerId !== event.pointerId) {
       return;
     }
@@ -277,6 +449,19 @@ export function createBoardInput({
   }
 
   function handleBoardPointerUp(event: PointerEvent): void {
+    // Right-click release: finalize arrow
+    if (event.button === 2 && arrowDragFrom) {
+      if (arrowPreview) { arrowPreview.remove(); arrowPreview = null; }
+      const toSquare = getSquareFromPointer(event.clientX, event.clientY);
+      if (toSquare && toSquare !== arrowDragFrom) {
+        toggleArrow(arrowDragFrom, toSquare);
+      } else if (toSquare === arrowDragFrom) {
+        toggleCircle(arrowDragFrom);
+      }
+      arrowDragFrom = null;
+      return;
+    }
+
     if (!scene.drag || scene.drag.pointerId !== event.pointerId) {
       return;
     }
@@ -369,11 +554,23 @@ export function createBoardInput({
     handleSquareClick(square);
   }
 
+  // Suppress context menu on board
+  boardElement.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  // Left click clears arrows
+  const origHandleBoardClick = handleBoardClick;
+  function handleBoardClickWithArrowClear(event: MouseEvent): void {
+    if (drawnArrows.length > 0 || arrowSvg?.querySelector("circle")) {
+      clearArrows();
+    }
+    origHandleBoardClick(event);
+  }
+
   return {
     beginDrag,
     clearDragHoldTimer,
     clearSelection,
-    handleBoardClick,
+    handleBoardClick: handleBoardClickWithArrowClear,
     handleBoardLostPointerCapture,
     handleBoardPointerCancel,
     handleBoardPointerDown,

@@ -1,19 +1,10 @@
 import type { PieceColor, Board, Move, PublicSnapshot } from "./chess-game";
+import { KNIGHT_JUMPS, PIECE_DEFINITIONS, getDefinition } from "./piece-movement";
 
 const FILES: string[] = ["a", "b", "c", "d", "e", "f", "g", "h"];
-const KNIGHT_ATTACK_OFFSETS: number[][] = [
-  [-2, -1],
-  [-2, 1],
-  [-1, -2],
-  [-1, 2],
-  [1, -2],
-  [1, 2],
-  [2, -1],
-  [2, 1],
-];
 
 export interface ForkResult {
-  knightSquare: string;
+  forkingSquare: string;
   kingSquare: string;
   queenSquares: string[];
 }
@@ -47,19 +38,24 @@ function getDefenderColor(record: Move, afterState: PublicSnapshot | null): Piec
   return record?.color === "w" ? "b" : "w";
 }
 
+function hasLeapRules(pieceType: string): boolean {
+  const def = PIECE_DEFINITIONS[pieceType];
+  return def ? def.rules.some((r) => r.leap) : false;
+}
+
 export function detectKnightKingQueenFork(record: Move | null, afterState: PublicSnapshot | null): ForkResult | null {
-  if (!record || record.piece !== "n" || !Array.isArray(afterState?.board)) {
+  if (!record || !hasLeapRules(record.piece) || !Array.isArray(afterState?.board)) {
     return null;
   }
 
-  const knightSquare = record.to;
-  const knightCoords = squareToCoords(knightSquare);
-  if (!knightCoords) {
+  const forkingSquare = record.to;
+  const forkingCoords = squareToCoords(forkingSquare);
+  if (!forkingCoords) {
     return null;
   }
 
-  const knight = afterState.board[knightCoords.row]?.[knightCoords.col];
-  if (!knight || knight.type !== "n" || knight.color !== record.color) {
+  const forkingPiece = afterState.board[forkingCoords.row]?.[forkingCoords.col];
+  if (!forkingPiece || !hasLeapRules(forkingPiece.type) || forkingPiece.color !== record.color) {
     return null;
   }
 
@@ -67,9 +63,9 @@ export function detectKnightKingQueenFork(record: Move | null, afterState: Publi
   let kingSquare = null;
   const queenSquares = [];
 
-  for (const [rowOffset, colOffset] of KNIGHT_ATTACK_OFFSETS) {
-    const targetRow = knightCoords.row + rowOffset;
-    const targetCol = knightCoords.col + colOffset;
+  for (const [rowOffset, colOffset] of KNIGHT_JUMPS) {
+    const targetRow = forkingCoords.row + rowOffset;
+    const targetCol = forkingCoords.col + colOffset;
     if (!isInBounds(targetRow, targetCol)) {
       continue;
     }
@@ -79,12 +75,12 @@ export function detectKnightKingQueenFork(record: Move | null, afterState: Publi
       continue;
     }
 
-    if (targetPiece.type === "k") {
+    if (getDefinition(targetPiece.type).royal) {
       kingSquare = coordsToSquare(targetRow, targetCol);
       continue;
     }
 
-    if (targetPiece.type === "q") {
+    if (getDefinition(targetPiece.type).highValueTarget) {
       queenSquares.push(coordsToSquare(targetRow, targetCol));
     }
   }
@@ -94,7 +90,7 @@ export function detectKnightKingQueenFork(record: Move | null, afterState: Publi
   }
 
   return {
-    knightSquare,
+    forkingSquare,
     kingSquare,
     queenSquares,
   };

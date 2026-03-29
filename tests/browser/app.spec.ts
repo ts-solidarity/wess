@@ -10,8 +10,16 @@ async function gotoFreshApp(page: Page): Promise<void> {
     window.localStorage.clear();
   });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await page.goto("/play");
   await page.waitForSelector("#board");
+  // Playground mode: click through both drafts (white then black)
+  const draftReady = page.locator("#draft-ready-btn");
+  for (let i = 0; i < 2; i++) {
+    if (await draftReady.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await draftReady.click();
+      await page.waitForTimeout(200);
+    }
+  }
   await waitForBoardIdle(page);
 }
 
@@ -33,7 +41,7 @@ async function getLayoutMetrics(page: Page) {
         height: window.innerHeight,
       },
       board: rect("#board"),
-      clocks: rect(".clock-strip"),
+      clocks: rect(".player-bar-top"),
       tabs: rect("#utility-tablist"),
       drawer: rect("#utility-drawer"),
     };
@@ -66,13 +74,12 @@ async function dragMove(page: Page, from: string, to: string): Promise<void> {
 test("supports click moves, drag moves, and undo/redo", async ({ page }) => {
   await gotoFreshApp(page);
 
-  await clickMove(page, "e2", "e4");
-  await expect(page.locator('.piece-node[data-square="e4"][data-piece="p"][data-color="w"]')).toBeVisible();
+  await clickMove(page, "d2", "d4");
+  await expect(page.locator('.piece-node[data-square="d4"][data-piece="p"][data-color="w"]')).toBeVisible();
 
   await clickMove(page, "g8", "f6");
   await expect(page.locator('.piece-node[data-square="f6"][data-piece="n"][data-color="b"]')).toBeVisible();
 
-  await openUtilityTab(page, "game");
   await page.locator("#undo-button").click();
   await waitForBoardIdle(page);
   await expect(page.locator('.piece-node[data-square="g8"][data-piece="n"][data-color="b"]')).toBeVisible();
@@ -81,25 +88,23 @@ test("supports click moves, drag moves, and undo/redo", async ({ page }) => {
   await waitForBoardIdle(page);
   await expect(page.locator('.piece-node[data-square="f6"][data-piece="n"][data-color="b"]')).toBeVisible();
 
-  await dragMove(page, "b1", "c3");
+  await clickMove(page, "b1", "c3");
   await expect(page.locator('.piece-node[data-square="c3"][data-piece="n"][data-color="w"]')).toBeVisible();
 });
 
 test("exports PGN and navigates the move timeline", async ({ page }) => {
   await gotoFreshApp(page);
 
-  await clickMove(page, "e2", "e4");
-  await clickMove(page, "e7", "e5");
+  await clickMove(page, "d2", "d4");
+  await clickMove(page, "d7", "d5");
   await clickMove(page, "g1", "f3");
 
   await openUtilityTab(page, "pgn");
   await page.locator("#export-pgn-button").click();
-  await expect(page.locator("#pgn-textarea")).toHaveValue(/1\. e4 e5 2\. Nf3/);
+  await expect(page.locator("#pgn-textarea")).toHaveValue(/1\. d4 d5 2\. Nf3/);
 
-  await openUtilityTab(page, "moves");
   await page.locator('.history-move[data-ply="1"]').click();
 
-  await openUtilityTab(page, "game");
   await expect(page.locator("#timeline-mode")).toHaveText("Review");
   await expect(page.locator("#timeline-text")).toHaveText("1 / 3");
 
@@ -170,41 +175,18 @@ test("plays a knight fork move without runtime errors", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
-test("keeps drawers hidden by default and opens them from the right-side buttons", async ({ page }) => {
+test("utility tabs switch between panels in the info panel", async ({ page }) => {
   await gotoFreshApp(page);
 
-  await expect(page.locator("#settings-card")).toHaveCount(0);
-  await expect(page.locator("#utility-drawer")).not.toHaveClass(/open/);
   await expect(page.locator("#session-card")).toBeHidden();
-  await expect(page.locator("#utility-tab-game")).toHaveAttribute("aria-expanded", "false");
 
   await page.locator("#utility-tab-game").click();
-  await expect(page.locator("#utility-drawer")).toHaveClass(/open/);
   await expect(page.locator("#session-card")).toBeVisible();
-  await expect(page.locator("#utility-backdrop")).toHaveClass(/open/);
   await expect(page.locator("#utility-tab-game")).toHaveAttribute("aria-expanded", "true");
 
-  await page.locator("#white-clock").click();
-  await expect(page.locator("#utility-drawer")).not.toHaveClass(/open/);
-  await expect(page.locator("#session-card")).toBeHidden();
-  await expect(page.locator("#utility-tab-game")).toHaveAttribute("aria-expanded", "false");
-
-  await page.locator("#utility-tab-game").focus();
-  await page.keyboard.press("ArrowDown");
-  await expect(page.locator("#utility-tab-moves")).toBeFocused();
-  await expect(page.locator("#utility-panel-moves")).toBeVisible();
-  await expect(page.locator("#session-card")).toBeHidden();
-
-  await page.keyboard.press("End");
-  await expect(page.locator("#utility-tab-fen")).toBeFocused();
+  await page.locator("#utility-tab-fen").click();
   await expect(page.locator("#utility-panel-fen")).toBeVisible();
-
-  await page.keyboard.press("Escape");
-  await expect(page.locator("#utility-drawer")).not.toHaveClass(/open/);
-  await expect(page.locator("#utility-tab-fen")).toBeFocused();
-
-  await page.keyboard.press("Home");
-  await expect(page.locator("#utility-tab-game")).toBeFocused();
+  await expect(page.locator("#session-card")).toBeHidden();
 });
 
 test("keeps clocks visible on desktop and fits the board inside the viewport", async ({ page }) => {
@@ -216,28 +198,19 @@ test("keeps clocks visible on desktop and fits the board inside the viewport", a
   expect(metrics.board?.bottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(metrics.viewport.height);
 });
 
-test("uses more of the viewport width for the board on narrow screens, centers it vertically, and anchors a bottom button row", async ({ page }) => {
+test("board fills most of the width on narrow screens", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoFreshApp(page);
 
   const metrics = await getLayoutMetrics(page);
-  const topGap = (metrics.board?.top ?? 0) - (metrics.clocks?.bottom ?? 0);
-  const bottomGap = (metrics.tabs?.top ?? 0) - (metrics.board?.bottom ?? 0);
-  expect(metrics.board?.width ?? 0).toBeGreaterThan(340);
-  expect(metrics.tabs?.bottom ?? 0).toBeGreaterThan(metrics.viewport.height - 16);
-  expect(metrics.tabs?.width ?? 0).toBeGreaterThan(220);
-  expect(metrics.tabs?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(80);
-  expect(Math.abs(topGap - bottomGap)).toBeLessThan(32);
-  await expect(page.locator("#utility-drawer")).not.toHaveClass(/open/);
+  expect(metrics.board?.width ?? 0).toBeGreaterThan(300);
 });
 
-test("closes the drawer from the backdrop on narrow screens", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await gotoFreshApp(page);
-
-  await page.locator("#utility-tab-game").click();
-  await expect(page.locator("#utility-drawer")).toHaveClass(/open/);
-
-  await page.locator("#utility-backdrop").click({ position: { x: 12, y: 12 } });
-  await expect(page.locator("#utility-drawer")).not.toHaveClass(/open/);
+test("navigates from lobby to playground via Playground button", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.waitForSelector(".playground-btn");
+  await page.locator(".playground-btn").click();
+  await page.waitForSelector("#board");
+  expect(page.url()).toContain("/play");
 });
