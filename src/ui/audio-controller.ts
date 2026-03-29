@@ -360,9 +360,23 @@ export function createAudioController({
 
   function scheduleMoveAudio(record: Move, state: PublicSnapshot, moveDuration: number): void {
     const settings = getSettings();
-    if (!settings.soundEnabled || !audioState.context || audioState.context.state !== "running") {
+    if (!settings.soundEnabled) return;
+
+    // Ensure audio context is ready
+    if (!audioState.context || audioState.context.state !== "running") {
+      void ensureReady().then(() => {
+        if (audioState.context?.state === "running") {
+          scheduleMoveAudioInner(record, state, moveDuration);
+        }
+      });
       return;
     }
+
+    scheduleMoveAudioInner(record, state, moveDuration);
+  }
+
+  function scheduleMoveAudioInner(record: Move, state: PublicSnapshot, moveDuration: number): void {
+    if (!audioState.context || audioState.context.state !== "running") return;
 
     if (record.isCastling) {
       playCastleCue(record.color, 0);
