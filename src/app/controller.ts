@@ -1378,8 +1378,13 @@ resetButton.addEventListener("click", () => {
   if (isAnimationActive() || isReplayActive()) {
     return;
   }
-  // Navigate to lobby to create a new game
-  window.location.href = "/";
+  if (mp.isMultiplayer()) {
+    window.location.href = "/";
+  } else {
+    // Playground: restart with fresh draft
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    openPlayground();
+  }
 });
 
 copyFenButton.addEventListener("click", async () => {
